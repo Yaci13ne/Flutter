@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Gymfitx</string>
+
+  <string name="facebook_app_id"> 664999353055965</string>
+  <string name="fb_login_protocol_scheme">fb8bcf70b2f3c77a67b5eacf5a1ac72930</string>
+
+</resources>

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "685128012393",
+    "project_id": "gymfitx-f4335",
+    "storage_bucket": "gymfitx-f4335.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:685128012393:android:3fb1d0064bb9baa00d08f8",
+        "android_client_info": {
+          "package_name": "com.example.lastpro"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "685128012393-ko93p6b7251g2cgd3ctmij6rkhcfv1mi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.lastpro",
+            "certificate_hash": "6f5ae9bed65eff4bb3459221093e7ad80effbc4f"
+          }
+        },
+        {
+          "client_id": "685128012393-0ek9gmpu95jkfumi1rl0hpr7uvqt7k4t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDo5CsqcVxa1zzqfuxmNVC-JO3jNZUQMr0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "685128012393-0ek9gmpu95jkfumi1rl0hpr7uvqt7k4t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

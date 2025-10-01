@@ -1,0 +1,159 @@
+name: flutter_application_1
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  font_awesome_flutter: ^10.6.0
+  cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.17
+  google_fonts: ^6.2.1
+  firebase_core: ^3.12.1
+  firebase_auth: ^5.5.1
+  google_sign_in: ^6.2.2
+  uuid: ^4.5.1
+  lucide_icons: ^0.257.0
+  cached_network_image: ^3.4.1
+  dotted_border: ^2.0.0
+  shared_preferences: ^2.0.15
+  path_provider: ^2.0.11
+  provider: ^6.1.2
+  expandable: ^5.0.1
+  image_picker: ^1.1.2
+  permission_handler: ^11.4.0
+  carousel_slider: ^5.0.0
+  file_picker: ^9.2.3
+  country_code_picker: ^3.3.0
+  url_launcher: ^6.3.1
+  flutter_facebook_auth: '^7.1.1'
+  fl_chart: ^0.71.0
+  video_player: ^2.9.5
+  lottie: ^3.3.1
+ 
+
+file_picker:
+  git:
+    url: https://github.com/miguelpruivo/flutter_file_picker
+    ref: master
+    path: file_picker
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/logo.png
+    - assets/logo2.png
+    - assets/logo3.png
+    - assets/canvap.png
+    - assets/chickenb.png
+    - assets/chickenb2.png
+    - assets/background.png
+    - assets/bmipict.png
+    - assets/thon.png
+    - assets/Egg.png
+    - assets/rice.png
+    - assets/as.jpg
+    - assets/chickenwings.png
+    - assets/fish.jpg
+    - assets/fill.png
+    - assets/oats.png
+    - assets/fill3.png
+    - assets/oil.png
+    - assets/dates.png
+    - assets/chickpeas.png
+    - assets/couscous.png
+    - assets/potatoes.png
+    - assets/tomatoes.png
+    - assets/onions.png
+    - assets/carrots.png
+    - assets/eggs.png
+    - assets/beef.png
+    - assets/mintleaves.png
+    - assets/greenpeas.png
+    - assets/zucchini.png
+    - assets/yugort.png
+    - pictures/GymFitX1-removebg-preview.png
+    - pictures/GymFitXnutrition-removebg-preview.png
+    - pictures/logos_facebook.png
+    - pictures/flat-color-icons_google.png
+    - pictures/Rectangle1.png
+    - pictures/carbon_password.png
+    - pictures/ic_outline-email.png
+    - pictures/weightheightpage.png
+    - pictures/carbon_nextleft.png
+    - pictures/carbon_nextright.png
+    - pictures/every.png
+    - pictures/namepage.png
+    - pictures/datepage.png
+    - pictures/genderpage.png
+    - pictures/mingcute_female-line.png
+    - pictures/famicons_male-sharp.png
+    - pictures/bmipage.png
+    - pictures/activityrate.png
+    - pictures/goalpage.png
+    - pictures/lastpage.png
+    - pictures/next.png
+    - pictures/lastpage2.png
+    - pictures/1-9.png
+    - assets/check.json
+    - pictures/bmipict.png
+    - pictures/firstpage.png
+    - assets/bmipict.png
+    - assets/logo.png
+    - assets/background.png  
+    - pictures/ic_outline-email.png
+    - assets/select.jpg
+    - assets/background.mp4
+    - assets/1.png
+    - assets/2.png
+    - assets/3.png
+    - assets/4.png
+    - assets/5.png
+    - assets/6.png
+    - assets/7.png
+    - pictures/pp1.png
+    - pictures/pp2.png
+    - pictures/pp3.png
+    - pictures/pp4.png
+    - pictures/Home.png
+    - pictures/ppinsert.png
+
+    - pictures/ppinsert2.png
+    - pictures/ppinsert2.5.png
+    - pictures/ppinsert3.png
+    - pictures/ppcreate.png
+    - pictures/ppcreate2.png
+    - pictures/ppcreate3.png
+    - pictures/ppcreate4.png
+    - pictures/pping.png
+  fonts:
+    - family: Lobster
+      fonts:
+        - asset: Lobster/Lobster-Regular.ttf
+          style: italic
+    - family: Roboto
+      fonts:
+        - asset: Roboto/Roboto-Medium.ttf
+          weight: 500
+        - asset: Roboto/Roboto-Bold.ttf
+          weight: 700
+    - family: MyFlutterApp
+      fonts:
+        - asset: icons/MyFlutterApp.ttf
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo.png"
