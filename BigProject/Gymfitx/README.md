@@ -1,16 +1,5 @@
-# lastpro
+#GymFitx
+App for gym nutrition for the project of the second year engineering CS
 
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Calculates total macros and u can track it daily in a professional way 
+![Screenshot_20250427_173339](https://github.com/user-attachments/assets/f293af27-8a03-4bfc-9165-de290aed28cf)
