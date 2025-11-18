@@ -62,7 +62,7 @@ class _GameState extends State<Game> {
                     onPressed: () {
                       Randomit();
                     },
-                    child: Image.asset('images/image-${variableLeft}.png'),
+                    child: Image.asset('images/image-$variableLeft.png'),
                   ),
                 ),
                 Expanded(
@@ -70,7 +70,7 @@ class _GameState extends State<Game> {
                     onPressed: () {
                       Randomit();
                     },
-                    child: Image.asset('images/image-${variableRight}.png'),
+                    child: Image.asset('images/image-$variableRight.png'),
                   ),
                 ),
               ],
