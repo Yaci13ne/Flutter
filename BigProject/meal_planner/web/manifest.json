@@ -1,6 +1,6 @@
 {
-    "name": "meal_planner",
-    "short_name": "meal_planner",
+    "name": "fl",
+    "short_name": "fl",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
