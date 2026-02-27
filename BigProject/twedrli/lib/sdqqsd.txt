@@ -1,0 +1,32 @@
+import 'package:flutter/material.dart';
+import 'package:twedrli/Pages/Login.dart';
+import 'package:twedrli/Pages/SignUp.dart';
+
+void main() {
+  runApp(const TwedrliApp());
+}
+
+class TwedrliApp extends StatelessWidget {
+  const TwedrliApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Twedrli',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        fontFamily: 'SF Pro Display',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color.fromARGB(255, 252, 252, 252),
+        ),
+        useMaterial3: true,
+      ),
+      initialRoute: '/login',
+      routes: {
+        '/login': (_) => const LoginScreen(),
+        '/signup': (_) => const SignUpScreen(),
+      },
+    );
+  }
+}
+

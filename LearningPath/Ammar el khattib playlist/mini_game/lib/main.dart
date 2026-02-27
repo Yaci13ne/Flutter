@@ -4,11 +4,11 @@ import 'dart:math';
 void main() {
   runApp(
     MaterialApp(
-      home: const Game(),
+      home: Game(),
       theme: ThemeData(
-        primaryColor: const Color.fromARGB(255, 53, 97, 173),
-        splashColor: const Color.fromARGB(255, 7, 21, 44),
-        textTheme: const TextTheme(
+        primaryColor: Color.fromARGB(255, 53, 97, 173),
+        splashColor: Color.fromARGB(255, 44, 21, 7),
+        textTheme: TextTheme(
           labelMedium: TextStyle(
             fontFamily: 'Roboto',
             fontSize: 40,

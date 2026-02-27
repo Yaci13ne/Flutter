@@ -1,0 +1,47 @@
+name: twedrli
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  image_picker: ^1.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+# 👇 MOVE THIS HERE (OUTSIDE flutter:)
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/Bottle.png
+    - assets/calc.png
+    - assets/keys.png
+    - assets/logo.png
+    - assets/charger.png
+    - assets/headphones.png
+    - assets/bl.png
+    - assets/apple.png
+    - assets/red.png
+    - assets/earbuds.png
+    - assets/se.png
+    - assets/iphone.png
+    - assets/id.png
+    - assets/umbrella.png
+    - assets/bg.png
+    - assets/google.png

@@ -1,0 +1,30 @@
+name: xorussian
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo.jpg" # <-- your logo here
+  adaptive_icon_background: "#ffffff" # optional, if your logo has transparency
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
