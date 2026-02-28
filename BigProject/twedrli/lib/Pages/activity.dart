@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:twedrli/Pages/Activity/update.dart';
+import 'package:twedrli/main.dart'; // Import for themeModeNotifier if needed
 
 void main() {
   runApp(const TwedrliApp());
@@ -21,6 +22,26 @@ class TwedrliApp extends StatelessWidget {
         ),
         fontFamily: 'SF Pro Display',
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF4F6F8),
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF1A1A2E),
+        ),
+      ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF00BFAE),
+          brightness: Brightness.dark,
+        ),
+        fontFamily: 'SF Pro Display',
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          backgroundColor: Color(0xFF1E1E1E),
+          foregroundColor: Colors.white,
+        ),
       ),
       home: const ActivityScreen(),
     );
@@ -112,24 +133,29 @@ class ActivityScreen extends StatefulWidget {
 class _ActivityScreenState extends State<ActivityScreen> {
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    SystemChrome.setSystemUIOverlayStyle(
+      isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+    );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
-            _buildNavButtons(context),
+            _buildHeader(theme, isDark),
+            _buildNavButtons(context, theme, isDark),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.only(bottom: 16),
                 children: [
-                  _buildSection('TODAY', todayItems),
+                  _buildSection('TODAY', todayItems, theme, isDark),
                   const SizedBox(height: 8),
-                  _buildSection('YESTERDAY', yesterdayItems),
+                  _buildSection('YESTERDAY', yesterdayItems, theme, isDark),
                   const SizedBox(height: 8),
-                  _buildSection('EARLIER', earlierItems),
+                  _buildSection('EARLIER', earlierItems, theme, isDark),
                 ],
               ),
             ),
@@ -141,20 +167,20 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   // ─── Header ──────────────────────────────────────────────────────────────
 
-  Widget _buildHeader() {
+  Widget _buildHeader(ThemeData theme, bool isDark) {
     return Container(
-      color: Colors.white,
+      color: theme.appBarTheme.backgroundColor,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Center(
               child: Text(
                 'Activity',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E),
+                  color: theme.colorScheme.onSurface,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -162,12 +188,12 @@ class _ActivityScreenState extends State<ActivityScreen> {
           ),
           GestureDetector(
             onTap: () {},
-            child: const Text(
+            child: Text(
               'Mark all read',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF00BFAE),
+                color: theme.colorScheme.primary,
               ),
             ),
           ),
@@ -178,9 +204,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   // ─── Navigation Buttons ──────────────────────────────────────────────────
 
-  Widget _buildNavButtons(BuildContext context) {
+  Widget _buildNavButtons(BuildContext context, ThemeData theme, bool isDark) {
     return Container(
-      color: Colors.white,
+      color: theme.appBarTheme.backgroundColor,
       child: Column(
         children: [
           // Red accent bar beneath the header
@@ -196,6 +222,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   badgeCount: 1,
                   color: const Color(0xFF9B59B6),
                   page: const ChatPage(),
+                  isDark: isDark,
                 ),
                 const SizedBox(width: 10),
                 _buildNavButton(
@@ -205,6 +232,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   badgeCount: 2,
                   color: const Color(0xFF00BFAE),
                   page: const NotificationsPage(),
+                  isDark: isDark,
                 ),
                 const SizedBox(width: 10),
                 _buildNavButton(
@@ -213,6 +241,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   icon: Icons.campaign_rounded,
                   color: const Color(0xFFE8840A),
                   page: const AnnouncementsPage(),
+                  isDark: isDark,
                 ),
                 const SizedBox(width: 10),
                 _buildNavButton(
@@ -221,6 +250,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   icon: Icons.update_rounded,
                   color: const Color(0xFF5A7AFF),
                   page: const UpdatesPage(),
+                  isDark: isDark,
                 ),
               ],
             ),
@@ -237,6 +267,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     required Color color,
     required Widget page,
     int? badgeCount,
+    required bool isDark,
   }) {
     return Expanded(
       child: GestureDetector(
@@ -245,9 +276,12 @@ class _ActivityScreenState extends State<ActivityScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
+            color: color.withOpacity(isDark ? 0.15 : 0.08),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withOpacity(0.18), width: 1),
+            border: Border.all(
+              color: color.withOpacity(isDark ? 0.25 : 0.18),
+              width: 1,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -302,7 +336,12 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   // ─── Section ─────────────────────────────────────────────────────────────
 
-  Widget _buildSection(String title, List<ActivityItem> items) {
+  Widget _buildSection(
+    String title,
+    List<ActivityItem> items,
+    ThemeData theme,
+    bool isDark,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -310,29 +349,31 @@ class _ActivityScreenState extends State<ActivityScreen> {
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF8A8FA8),
+              color: isDark ? Colors.grey[500] : const Color(0xFF8A8FA8),
               letterSpacing: 1.2,
             ),
           ),
         ),
         Container(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           child: Column(
             children: items.asMap().entries.map((entry) {
               final index = entry.key;
               final item = entry.value;
               return Column(
                 children: [
-                  _buildActivityTile(item),
+                  _buildActivityTile(item, theme, isDark),
                   if (index < items.length - 1)
-                    const Divider(
+                    Divider(
                       height: 1,
                       thickness: 0.5,
                       indent: 76,
-                      color: Color(0xFFECEDF2),
+                      color: isDark
+                          ? Colors.grey[800]!
+                          : const Color(0xFFECEDF2),
                     ),
                 ],
               );
@@ -345,9 +386,15 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
   // ─── Activity Tile ───────────────────────────────────────────────────────
 
-  Widget _buildActivityTile(ActivityItem item) {
+  Widget _buildActivityTile(ActivityItem item, ThemeData theme, bool isDark) {
+    final unreadColor = isDark
+        ? theme.colorScheme.primary.withOpacity(0.15)
+        : const Color(0xFFF0FFFE);
+
     return Container(
-      color: item.isUnread ? const Color(0xFFF0FFFE) : Colors.white,
+      color: item.isUnread
+          ? unreadColor
+          : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
       child: Stack(
         children: [
           if (item.isUnread)
@@ -355,14 +402,14 @@ class _ActivityScreenState extends State<ActivityScreen> {
               left: 0,
               top: 0,
               bottom: 0,
-              child: Container(width: 3, color: const Color(0xFF00BFAE)),
+              child: Container(width: 3, color: theme.colorScheme.primary),
             ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _buildAvatar(item),
+                _buildAvatar(item, isDark),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -370,7 +417,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                     children: [
                       Row(
                         children: [
-                          _buildTypeIcon(item.type),
+                          _buildTypeIcon(item.type, theme),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -380,16 +427,20 @@ class _ActivityScreenState extends State<ActivityScreen> {
                                 fontWeight: item.isUnread
                                     ? FontWeight.w700
                                     : FontWeight.w600,
-                                color: const Color(0xFF1A1A2E),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1A1A2E),
                                 letterSpacing: -0.1,
                               ),
                             ),
                           ),
                           Text(
                             item.time,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFFB0B4C8),
+                              color: isDark
+                                  ? Colors.grey[500]
+                                  : const Color(0xFFB0B4C8),
                             ),
                           ),
                         ],
@@ -399,9 +450,11 @@ class _ActivityScreenState extends State<ActivityScreen> {
                         padding: const EdgeInsets.only(left: 20),
                         child: Text(
                           item.subtitle,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF7B8099),
+                            color: isDark
+                                ? Colors.grey[400]
+                                : const Color(0xFF7B8099),
                             height: 1.3,
                           ),
                           maxLines: 1,
@@ -419,7 +472,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
-  Widget _buildAvatar(ActivityItem item) {
+  Widget _buildAvatar(ActivityItem item, bool isDark) {
     final config = _avatarConfig(item.type);
     return Container(
       width: 52,
@@ -429,7 +482,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: (config['bgColor'] as Color).withOpacity(0.3),
+            color: (config['bgColor'] as Color).withOpacity(isDark ? 0.5 : 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -438,7 +491,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
       child: item.type == ActivityType.message
           ? ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: _PersonPlaceholder(),
+              child: _PersonPlaceholder(isDark: isDark),
             )
           : item.type == ActivityType.system
           ? Icon(
@@ -479,14 +532,14 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
-  Widget _buildTypeIcon(ActivityType type) {
+  Widget _buildTypeIcon(ActivityType type, ThemeData theme) {
     IconData icon;
     Color color;
     switch (type) {
       case ActivityType.approved:
       case ActivityType.recovered:
         icon = Icons.check_circle;
-        color = const Color(0xFF00BFAE);
+        color = theme.colorScheme.primary;
         break;
       case ActivityType.match:
         icon = Icons.search;
@@ -507,6 +560,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
 // ─── Person Placeholder ───────────────────────────────────────────────────────
 
 class _PersonPlaceholder extends StatelessWidget {
+  final bool isDark;
+
+  const _PersonPlaceholder({this.isDark = false});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -520,7 +577,7 @@ class _PersonPlaceholder extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withOpacity(isDark ? 0.2 : 0.3),
                 shape: BoxShape.circle,
               ),
             ),
@@ -558,22 +615,25 @@ class PageShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
             Container(
-              color: Colors.white,
+              color: theme.appBarTheme.backgroundColor,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 20,
-                      color: Color(0xFF1A1A2E),
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -581,10 +641,10 @@ class PageShell extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A2E),
+                      color: theme.colorScheme.onSurface,
                       letterSpacing: -0.3,
                     ),
                   ),
@@ -607,6 +667,9 @@ class ChatPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     final chats = [
       {
         'name': 'Alex',
@@ -641,17 +704,23 @@ class ChatPage extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: chats.length,
-        separatorBuilder: (_, __) => const Divider(
+        separatorBuilder: (_, __) => Divider(
           height: 1,
           thickness: 0.5,
           indent: 76,
-          color: Color(0xFFECEDF2),
+          color: isDark ? Colors.grey[800]! : const Color(0xFFECEDF2),
         ),
         itemBuilder: (context, index) {
           final chat = chats[index];
           final isUnread = chat['unread'] as bool;
+          final unreadColor = isDark
+              ? const Color(0xFF9B59B6).withOpacity(0.15)
+              : const Color(0xFFFAF5FF);
+
           return Container(
-            color: isUnread ? const Color(0xFFFAF5FF) : Colors.white,
+            color: isUnread
+                ? unreadColor
+                : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
             child: Stack(
               children: [
                 if (isUnread)
@@ -668,13 +737,15 @@ class ChatPage extends StatelessWidget {
                   ),
                   leading: CircleAvatar(
                     radius: 26,
-                    backgroundColor: const Color(0xFF9B59B6).withOpacity(0.15),
+                    backgroundColor: const Color(
+                      0xFF9B59B6,
+                    ).withOpacity(isDark ? 0.2 : 0.15),
                     child: Text(
                       (chat['name'] as String)[0],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF9B59B6),
+                        color: const Color(0xFF9B59B6),
                       ),
                     ),
                   ),
@@ -683,7 +754,7 @@ class ChatPage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
-                      color: const Color(0xFF1A1A2E),
+                      color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                     ),
                   ),
                   subtitle: Text(
@@ -693,16 +764,20 @@ class ChatPage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       color: isUnread
-                          ? const Color(0xFF1A1A2E)
-                          : const Color(0xFF7B8099),
+                          ? (isDark ? Colors.white70 : const Color(0xFF1A1A2E))
+                          : (isDark
+                                ? Colors.grey[400]
+                                : const Color(0xFF7B8099)),
                       fontWeight: isUnread ? FontWeight.w500 : FontWeight.w400,
                     ),
                   ),
                   trailing: Text(
                     chat['time'] as String,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFFB0B4C8),
+                      color: isDark
+                          ? Colors.grey[500]
+                          : const Color(0xFFB0B4C8),
                     ),
                   ),
                 ),
@@ -722,6 +797,9 @@ class NotificationsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     final notifications = [
       {
         'icon': Icons.search,
@@ -764,18 +842,24 @@ class NotificationsPage extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: notifications.length,
-        separatorBuilder: (_, __) => const Divider(
+        separatorBuilder: (_, __) => Divider(
           height: 1,
           thickness: 0.5,
           indent: 76,
-          color: Color(0xFFECEDF2),
+          color: isDark ? Colors.grey[800]! : const Color(0xFFECEDF2),
         ),
         itemBuilder: (context, index) {
           final n = notifications[index];
           final isUnread = n['unread'] as bool;
           final color = Color(n['color'] as int);
+          final unreadColor = isDark
+              ? const Color(0xFF00BFAE).withOpacity(0.15)
+              : const Color(0xFFF0FFFE);
+
           return Container(
-            color: isUnread ? const Color(0xFFF0FFFE) : Colors.white,
+            color: isUnread
+                ? unreadColor
+                : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
             child: Stack(
               children: [
                 if (isUnread)
@@ -794,7 +878,7 @@ class NotificationsPage extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.12),
+                      color: color.withOpacity(isDark ? 0.2 : 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(n['icon'] as IconData, color: color, size: 24),
@@ -804,21 +888,25 @@ class NotificationsPage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
-                      color: const Color(0xFF1A1A2E),
+                      color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                     ),
                   ),
                   subtitle: Text(
                     n['desc'] as String,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF7B8099),
+                      color: isDark
+                          ? Colors.grey[400]
+                          : const Color(0xFF7B8099),
                     ),
                   ),
                   trailing: Text(
                     n['time'] as String,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFFB0B4C8),
+                      color: isDark
+                          ? Colors.grey[500]
+                          : const Color(0xFFB0B4C8),
                     ),
                   ),
                 ),
@@ -838,6 +926,9 @@ class AnnouncementsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     final announcements = [
       {
         'title': '🎉 Welcome to Twedrli v2.4!',
@@ -878,11 +969,13 @@ class AnnouncementsPage extends StatelessWidget {
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: isDark
+                      ? Colors.transparent
+                      : Colors.black.withOpacity(0.05),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -901,7 +994,7 @@ class AnnouncementsPage extends StatelessWidget {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: tagColor.withOpacity(0.12),
+                          color: tagColor.withOpacity(isDark ? 0.2 : 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -916,9 +1009,11 @@ class AnnouncementsPage extends StatelessWidget {
                       const Spacer(),
                       Text(
                         a['date'] as String,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFFB0B4C8),
+                          color: isDark
+                              ? Colors.grey[500]
+                              : const Color(0xFFB0B4C8),
                         ),
                       ),
                     ],
@@ -926,19 +1021,21 @@ class AnnouncementsPage extends StatelessWidget {
                   const SizedBox(height: 10),
                   Text(
                     a['title'] as String,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A2E),
+                      color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                       letterSpacing: -0.2,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     a['body'] as String,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF7B8099),
+                      color: isDark
+                          ? Colors.grey[400]
+                          : const Color(0xFF7B8099),
                       height: 1.5,
                     ),
                   ),

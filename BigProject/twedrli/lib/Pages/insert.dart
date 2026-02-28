@@ -83,29 +83,35 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    SystemChrome.setSystemUIOverlayStyle(
+      isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+    );
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(theme, isDark),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildToggle(),
+                    _buildToggle(theme, isDark),
                     const SizedBox(height: 20),
-                    _buildPhotoUpload(),
+                    _buildPhotoUpload(isDark),
                     const SizedBox(height: 24),
-                    _buildLabel('Item Title'),
+                    _buildLabel('Item Title', isDark),
                     const SizedBox(height: 8),
                     _buildTextField(
                       controller: _titleController,
                       hint: 'e.g. Blue Hydro Flask, Silver Keys',
+                      isDark: isDark,
                     ),
                     const SizedBox(height: 20),
                     Row(
@@ -115,9 +121,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildLabel('Campus Zone'),
+                              _buildLabel('Campus Zone', isDark),
                               const SizedBox(height: 8),
-                              _buildDropdown(),
+                              _buildDropdown(isDark),
                             ],
                           ),
                         ),
@@ -126,26 +132,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildLabel('Date'),
+                              _buildLabel('Date', isDark),
                               const SizedBox(height: 8),
-                              _buildDateField(),
+                              _buildDateField(isDark),
                             ],
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
-                    _buildLabel('Item Color'),
+                    _buildLabel('Item Color', isDark),
                     const SizedBox(height: 12),
-                    _buildColorSelector(),
+                    _buildColorSelector(isDark),
                     const SizedBox(height: 24),
-                    _buildLabel('Description'),
+                    _buildLabel('Description', isDark),
                     const SizedBox(height: 8),
-                    _buildDescriptionField(),
+                    _buildDescriptionField(isDark),
                     const SizedBox(height: 16),
-                    _buildSecurityNote(),
+                    _buildSecurityNote(isDark),
                     const SizedBox(height: 28),
-                    _buildSubmitButton(),
+                    _buildSubmitButton(theme),
                   ],
                 ),
               ),
@@ -158,15 +164,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   // ─── Header ────────────────────────────────────────────────────────────────
 
-  Widget _buildHeader() {
+  Widget _buildHeader(ThemeData theme, bool isDark) {
     return Container(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
           GestureDetector(
             onTap: () => Navigator.of(context).maybePop(),
-            child: const Icon(Icons.close, color: Color(0xFF29B6F6), size: 24),
+            child: Icon(
+              Icons.close,
+              color: theme.colorScheme.primary,
+              size: 24,
+            ),
           ),
           const Expanded(
             child: Center(
@@ -175,7 +185,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E),
                   letterSpacing: -0.3,
                 ),
               ),
@@ -183,12 +192,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ),
           GestureDetector(
             onTap: () {},
-            child: const Text(
+            child: Text(
               'Drafts',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF29B6F6),
+                color: theme.colorScheme.primary,
               ),
             ),
           ),
@@ -199,21 +208,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   // ─── Lost / Found Toggle ───────────────────────────────────────────────────
 
-  Widget _buildToggle() {
+  Widget _buildToggle(ThemeData theme, bool isDark) {
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F9FF),
+        color: isDark ? Colors.grey[900] : const Color(0xFFF0F9FF),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFBAE6FD), width: 1),
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : const Color(0xFFBAE6FD),
+          width: 1,
+        ),
       ),
       child: Row(
-        children: [_toggleTab('LOST', true), _toggleTab('FOUND', false)],
+        children: [
+          _toggleTab('LOST', true, theme, isDark),
+          _toggleTab('FOUND', false, theme, isDark),
+        ],
       ),
     );
   }
 
-  Widget _toggleTab(String label, bool isLost) {
+  Widget _toggleTab(String label, bool isLost, ThemeData theme, bool isDark) {
     final isActive = _isLost == isLost;
     return Expanded(
       child: GestureDetector(
@@ -222,12 +237,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: isActive ? Colors.white : Colors.transparent,
+            color: isActive
+                ? (isDark ? Colors.grey[800] : Colors.white)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(9),
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: isDark
+                          ? Colors.transparent
+                          : Colors.black.withOpacity(0.08),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -242,8 +261,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
                 color: isActive
-                    ? const Color(0xFF29B6F6)
-                    : const Color(0xFF8BB8CC),
+                    ? theme.colorScheme.primary
+                    : (isDark ? Colors.grey[600] : const Color(0xFF8BB8CC)),
               ),
             ),
           ),
@@ -253,7 +272,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   // ─── Photo Upload ──────────────────────────────────────────────────────────
-Widget _buildPhotoUpload() {
+  Widget _buildPhotoUpload(bool isDark) {
     return GestureDetector(
       onTap: () async {
         final picker = ImagePicker();
@@ -272,9 +291,12 @@ Widget _buildPhotoUpload() {
             ? EdgeInsets.zero
             : const EdgeInsets.symmetric(vertical: 36),
         decoration: BoxDecoration(
-          color: const Color(0xFFF0F9FF),
+          color: isDark ? Colors.grey[900] : const Color(0xFFF0F9FF),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF7DD3F8), width: 1.5),
+          border: Border.all(
+            color: isDark ? Colors.grey[700]! : const Color(0xFF7DD3F8),
+            width: 1.5,
+          ),
         ),
         child: _selectedImage != null
             ? Stack(
@@ -356,11 +378,13 @@ Widget _buildPhotoUpload() {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? Colors.grey[800] : Colors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF29B6F6).withOpacity(0.15),
+                          color:
+                              (isDark ? Colors.white : const Color(0xFF29B6F6))
+                                  .withOpacity(0.15),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -368,10 +392,12 @@ Widget _buildPhotoUpload() {
                     ),
                     child: Stack(
                       children: [
-                        const Center(
+                        Center(
                           child: Icon(
                             Icons.camera_alt_outlined,
-                            color: Color(0xFF29B6F6),
+                            color: isDark
+                                ? Colors.white70
+                                : const Color(0xFF29B6F6),
                             size: 26,
                           ),
                         ),
@@ -381,8 +407,10 @@ Widget _buildPhotoUpload() {
                           child: Container(
                             width: 14,
                             height: 14,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF29B6F6),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.blue[400]
+                                  : const Color(0xFF29B6F6),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -396,21 +424,23 @@ Widget _buildPhotoUpload() {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
+                  Text(
                     'Add Item Photo',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A2E),
+                      color: isDark ? Colors.white70 : const Color(0xFF1A1A2E),
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Upload a clear photo of the item to help\nothers identify it quickly',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF8BA5B5),
+                      color: isDark
+                          ? Colors.grey[500]
+                          : const Color(0xFF8BA5B5),
                       height: 1.4,
                     ),
                   ),
@@ -418,15 +448,17 @@ Widget _buildPhotoUpload() {
               ),
       ),
     );
-  } // ─── Label ─────────────────────────────────────────────────────────────────
+  }
 
-  Widget _buildLabel(String text) {
+  // ─── Label ─────────────────────────────────────────────────────────────────
+
+  Widget _buildLabel(String text, bool isDark) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF1A1A2E),
+        color: isDark ? Colors.white70 : const Color(0xFF1A1A2E),
         letterSpacing: -0.2,
       ),
     );
@@ -437,26 +469,39 @@ Widget _buildPhotoUpload() {
   Widget _buildTextField({
     required TextEditingController controller,
     required String hint,
+    required bool isDark,
   }) {
     return TextField(
       controller: controller,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A2E)),
+      style: TextStyle(
+        fontSize: 14,
+        color: isDark ? Colors.white70 : const Color(0xFF1A1A2E),
+      ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFB0C4CE), fontSize: 14),
+        hintStyle: TextStyle(
+          color: isDark ? Colors.grey[600] : const Color(0xFFB0C4CE),
+          fontSize: 14,
+        ),
         filled: true,
-        fillColor: const Color(0xFFF8FBFD),
+        fillColor: isDark ? Colors.grey[900] : const Color(0xFFF8FBFD),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFDDE8EE), width: 1),
+          borderSide: BorderSide(
+            color: isDark ? Colors.grey[800]! : const Color(0xFFDDE8EE),
+            width: 1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF29B6F6), width: 1.5),
+          borderSide: BorderSide(
+            color: isDark ? Colors.blue[400]! : const Color(0xFF29B6F6),
+            width: 1.5,
+          ),
         ),
       ),
     );
@@ -464,24 +509,31 @@ Widget _buildPhotoUpload() {
 
   // ─── Dropdown ──────────────────────────────────────────────────────────────
 
-  Widget _buildDropdown() {
+  Widget _buildDropdown(bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FBFD),
+        color: isDark ? Colors.grey[900] : const Color(0xFFF8FBFD),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFDDE8EE), width: 1),
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : const Color(0xFFDDE8EE),
+          width: 1,
+        ),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedZone,
           isExpanded: true,
-          icon: const Icon(
+          icon: Icon(
             Icons.keyboard_arrow_down,
-            color: Color(0xFF8BA5B5),
+            color: isDark ? Colors.grey[500] : const Color(0xFF8BA5B5),
             size: 20,
           ),
-          style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A2E)),
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark ? Colors.white70 : const Color(0xFF1A1A2E),
+          ),
+          dropdownColor: isDark ? Colors.grey[900] : Colors.white,
           items: campusZones
               .map((z) => DropdownMenuItem(value: z, child: Text(z)))
               .toList(),
@@ -495,7 +547,7 @@ Widget _buildPhotoUpload() {
 
   // ─── Date Field ────────────────────────────────────────────────────────────
 
-  Widget _buildDateField() {
+  Widget _buildDateField(bool isDark) {
     return GestureDetector(
       onTap: () async {
         final picked = await showDatePicker(
@@ -505,7 +557,9 @@ Widget _buildPhotoUpload() {
           lastDate: DateTime.now(),
           builder: (ctx, child) => Theme(
             data: Theme.of(ctx).copyWith(
-              colorScheme: const ColorScheme.light(primary: Color(0xFF29B6F6)),
+              colorScheme: ColorScheme.light(
+                primary: isDark ? Colors.blue[400]! : const Color(0xFF29B6F6),
+              ),
             ),
             child: child!,
           ),
@@ -520,9 +574,12 @@ Widget _buildPhotoUpload() {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FBFD),
+          color: isDark ? Colors.grey[900] : const Color(0xFFF8FBFD),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFDDE8EE), width: 1),
+          border: Border.all(
+            color: isDark ? Colors.grey[800]! : const Color(0xFFDDE8EE),
+            width: 1,
+          ),
         ),
         child: Row(
           children: [
@@ -534,8 +591,8 @@ Widget _buildPhotoUpload() {
                 style: TextStyle(
                   fontSize: 14,
                   color: _dateController.text.isEmpty
-                      ? const Color(0xFFB0C4CE)
-                      : const Color(0xFF1A1A2E),
+                      ? (isDark ? Colors.grey[600] : const Color(0xFFB0C4CE))
+                      : (isDark ? Colors.white70 : const Color(0xFF1A1A2E)),
                 ),
               ),
             ),
@@ -547,7 +604,7 @@ Widget _buildPhotoUpload() {
 
   // ─── Color Selector ────────────────────────────────────────────────────────
 
-  Widget _buildColorSelector() {
+  Widget _buildColorSelector(bool isDark) {
     return SizedBox(
       height: 72,
       child: ListView.builder(
@@ -571,12 +628,16 @@ Widget _buildPhotoUpload() {
                       shape: BoxShape.circle,
                       border: c.hasOutline
                           ? Border.all(
-                              color: const Color(0xFFDDE8EE),
+                              color: isDark
+                                  ? Colors.grey[600]!
+                                  : const Color(0xFFDDE8EE),
                               width: 1.5,
                             )
                           : isSelected
                           ? Border.all(
-                              color: const Color(0xFF29B6F6),
+                              color: isDark
+                                  ? Colors.blue[400]!
+                                  : const Color(0xFF29B6F6),
                               width: 2.5,
                             )
                           : null,
@@ -594,7 +655,9 @@ Widget _buildPhotoUpload() {
                         ? Icon(
                             Icons.check,
                             color: c.hasOutline
-                                ? const Color(0xFF1A1A2E)
+                                ? (isDark
+                                      ? Colors.white70
+                                      : const Color(0xFF1A1A2E))
                                 : Colors.white,
                             size: 20,
                           )
@@ -606,8 +669,12 @@ Widget _buildPhotoUpload() {
                     style: TextStyle(
                       fontSize: 11,
                       color: isSelected
-                          ? const Color(0xFF29B6F6)
-                          : const Color(0xFF8BA5B5),
+                          ? (isDark
+                                ? Colors.blue[400]
+                                : const Color(0xFF29B6F6))
+                          : (isDark
+                                ? Colors.grey[500]
+                                : const Color(0xFF8BA5B5)),
                       fontWeight: isSelected
                           ? FontWeight.w600
                           : FontWeight.w400,
@@ -624,28 +691,37 @@ Widget _buildPhotoUpload() {
 
   // ─── Description Field ─────────────────────────────────────────────────────
 
-  Widget _buildDescriptionField() {
+  Widget _buildDescriptionField(bool isDark) {
     return TextField(
       controller: _descController,
       maxLines: 5,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A2E)),
+      style: TextStyle(
+        fontSize: 14,
+        color: isDark ? Colors.white70 : const Color(0xFF1A1A2E),
+      ),
       decoration: InputDecoration(
         hintText: 'Mention unique marks, stickers, or\nbrand details...',
-        hintStyle: const TextStyle(
-          color: Color(0xFFB0C4CE),
+        hintStyle: TextStyle(
+          color: isDark ? Colors.grey[600] : const Color(0xFFB0C4CE),
           fontSize: 14,
           height: 1.5,
         ),
         filled: true,
-        fillColor: const Color(0xFFF8FBFD),
+        fillColor: isDark ? Colors.grey[900] : const Color(0xFFF8FBFD),
         contentPadding: const EdgeInsets.all(16),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFDDE8EE), width: 1),
+          borderSide: BorderSide(
+            color: isDark ? Colors.grey[800]! : const Color(0xFFDDE8EE),
+            width: 1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF29B6F6), width: 1.5),
+          borderSide: BorderSide(
+            color: isDark ? Colors.blue[400]! : const Color(0xFF29B6F6),
+            width: 1.5,
+          ),
         ),
       ),
     );
@@ -653,29 +729,32 @@ Widget _buildPhotoUpload() {
 
   // ─── Security Note ─────────────────────────────────────────────────────────
 
-  Widget _buildSecurityNote() {
+  Widget _buildSecurityNote(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F9FF),
+        color: isDark ? Colors.grey[900] : const Color(0xFFF0F9FF),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFBAE6FD), width: 1),
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : const Color(0xFFBAE6FD),
+          width: 1,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline_rounded,
-            color: Color(0xFF29B6F6),
+            color: isDark ? Colors.blue[400] : const Color(0xFF29B6F6),
             size: 18,
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
               "For security, don't mention high-value specific details like serial numbers or passcode clues. You can verify ownership through private chat.",
               style: TextStyle(
                 fontSize: 12.5,
-                color: Color(0xFF5A8099),
+                color: isDark ? Colors.grey[400] : const Color(0xFF5A8099),
                 height: 1.5,
               ),
             ),
@@ -687,9 +766,9 @@ Widget _buildPhotoUpload() {
 
   // ─── Submit Button ─────────────────────────────────────────────────────────
 
-  Widget _buildSubmitButton() {
+  Widget _buildSubmitButton(ThemeData theme) {
     return GestureDetector(
-onTap: () {
+      onTap: () {
         final newItem = LostFoundItem(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           title: _titleController.text,
@@ -698,10 +777,8 @@ onTap: () {
               ? _parseDate(_dateController.text)
               : DateTime.now(),
           status: _isLost ? ItemStatus.lost : ItemStatus.found,
-imagePath: _selectedImage?.path ?? '',  
-
-
-        description: _descController.text,
+          imagePath: _selectedImage?.path ?? '',
+          description: _descController.text,
           contactInfo: '',
           color: itemColors[_selectedColorIndex].label,
           category: '',
@@ -717,15 +794,18 @@ imagePath: _selectedImage?.path ?? '',
         width: double.infinity,
         height: 54,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF29B6F6), Color(0xFF0288D1)],
+          gradient: LinearGradient(
+            colors: [
+              theme.colorScheme.primary,
+              theme.colorScheme.primary.withBlue(150),
+            ],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           borderRadius: BorderRadius.circular(27),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF29B6F6).withOpacity(0.4),
+              color: theme.colorScheme.primary.withOpacity(0.4),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
@@ -750,8 +830,8 @@ imagePath: _selectedImage?.path ?? '',
       ),
     );
   }
-  
-DateTime _parseDate(String text) {
+
+  DateTime _parseDate(String text) {
     final parts = text.split('/');
     return DateTime(
       int.parse(parts[2]), // year

@@ -13,7 +13,7 @@ class TwedrliApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
+     debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'SF Pro Display',
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
@@ -30,6 +30,25 @@ class TwedrliApp extends StatelessWidget {
             fontSize: 20,
             fontWeight: FontWeight.w600,
             color: Color(0xFF1A1A1A),
+          ),
+        ),
+      ),
+      darkTheme: ThemeData(
+        fontFamily: 'SF Pro Display',
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2196F3),
+          brightness: Brightness.dark,
+        ),
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          centerTitle: true,
+          backgroundColor: Color(0xFF1E1E1E),
+          foregroundColor: Colors.white,
+          titleTextStyle: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
         ),
       ),
@@ -89,16 +108,10 @@ class LostFoundItem {
   String get timeAgo {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
+    if (difference.inDays > 0) return '${difference.inDays}d ago';
+    if (difference.inHours > 0) return '${difference.inHours}h ago';
+    if (difference.inMinutes > 0) return '${difference.inMinutes}m ago';
+    return 'Just now';
   }
 
   const LostFoundItem({
@@ -135,12 +148,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<LostFoundItem> _getFilteredItems(List<LostFoundItem> items) {
     Iterable<LostFoundItem> filtered = items;
-
     if (_selectedFilterIndex != 0) {
       final status = ItemStatus.values[_selectedFilterIndex - 1];
       filtered = filtered.where((item) => item.status == status);
     }
-
     return filtered.toList()..sort((a, b) {
       switch (_currentSort) {
         case SortOption.newest:
@@ -155,18 +166,18 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // ── Builds the correct image widget for both asset and file paths ──
-  Widget _buildDetailImage(LostFoundItem item) {
-    Widget imageWidget;
+  Widget _buildDetailImage(LostFoundItem item, BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    Widget imageWidget;
     if (item.imagePath.isEmpty) {
       imageWidget = Container(
-        color: const Color(0xFFE3F2FD),
+        color: isDark ? Colors.grey[800] : const Color(0xFFE3F2FD),
         child: Center(
           child: Icon(
             Icons.image_not_supported,
             size: 60,
-            color: Colors.grey[400],
+            color: isDark ? Colors.grey[600] : Colors.grey[400],
           ),
         ),
       );
@@ -175,7 +186,11 @@ class _HomeScreenState extends State<HomeScreen> {
         item.imagePath,
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Center(
-          child: Icon(Icons.broken_image, size: 60, color: Colors.grey[400]),
+          child: Icon(
+            Icons.broken_image,
+            size: 60,
+            color: isDark ? Colors.grey[600] : Colors.grey[400],
+          ),
         ),
       );
     } else {
@@ -183,7 +198,11 @@ class _HomeScreenState extends State<HomeScreen> {
         File(item.imagePath),
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Center(
-          child: Icon(Icons.broken_image, size: 60, color: Colors.grey[400]),
+          child: Icon(
+            Icons.broken_image,
+            size: 60,
+            color: isDark ? Colors.grey[600] : Colors.grey[400],
+          ),
         ),
       );
     }
@@ -225,12 +244,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
     }
-
     return imageWidget;
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return ValueListenableBuilder<List<LostFoundItem>>(
       valueListenable: allItemsNotifier,
       builder: (context, items, _) {
@@ -243,9 +264,11 @@ class _HomeScreenState extends State<HomeScreen> {
             .length;
 
         return Scaffold(
-          backgroundColor: const Color.fromARGB(0, 248, 249, 250),
+          backgroundColor: theme.scaffoldBackgroundColor,
           appBar: AppBar(
             toolbarHeight: 120,
+            backgroundColor: theme.appBarTheme.backgroundColor,
+            foregroundColor: theme.appBarTheme.foregroundColor,
             leading: Padding(
               padding: const EdgeInsets.all(12.0),
               child: Image.asset('assets/logo.png', height: 70, width: 50),
@@ -259,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE3F2FD),
+                  color: isDark ? Colors.grey[800] : const Color(0xFFE3F2FD),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -275,25 +298,31 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 6),
                     Text(
                       '$activeCount active',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1976D2),
+                        color: isDark
+                            ? Colors.white70
+                            : const Color(0xFF1976D2),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
                       width: 1,
                       height: 16,
-                      color: const Color(0xFFBBDEFB),
+                      color: isDark
+                          ? Colors.grey[600]
+                          : const Color(0xFFBBDEFB),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '$claimedCount claimed',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF757575),
+                        color: isDark
+                            ? Colors.grey[500]
+                            : const Color(0xFF757575),
                       ),
                     ),
                   ],
@@ -305,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // ── Filter and Sort Bar ──
               Container(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
@@ -326,24 +355,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: TextStyle(
                                     color: isSelected
                                         ? Colors.white
-                                        : const Color(0xFF555555),
+                                        : (isDark
+                                              ? Colors.grey[400]
+                                              : const Color(0xFF555555)),
                                     fontWeight: FontWeight.w600,
                                     fontSize: 13,
                                   ),
                                 ),
                                 selected: isSelected,
-                                onSelected: (_) {
-                                  setState(() => _selectedFilterIndex = i);
-                                },
-                                backgroundColor: Colors.white,
-                                selectedColor: const Color(0xFF2196F3),
+                                onSelected: (_) =>
+                                    setState(() => _selectedFilterIndex = i),
+                                backgroundColor: isDark
+                                    ? Colors.grey[800]
+                                    : Colors.white,
+                                selectedColor: theme.colorScheme.primary,
                                 checkmarkColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(30),
                                   side: BorderSide(
                                     color: isSelected
                                         ? Colors.transparent
-                                        : const Color(0xFFE0E0E0),
+                                        : (isDark
+                                              ? Colors.grey[700]!
+                                              : const Color(0xFFE0E0E0)),
                                     width: 1.5,
                                   ),
                                 ),
@@ -359,35 +393,39 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(width: 8),
                     GestureDetector(
-                      onTap: () {
-                        setState(
-                          () => _isSortMenuVisible = !_isSortMenuVisible,
-                        );
-                      },
+                      onTap: () => setState(
+                        () => _isSortMenuVisible = !_isSortMenuVisible,
+                      ),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F5),
+                          color: isDark
+                              ? Colors.grey[800]!
+                              : const Color(0xFFF5F5F5),
                           borderRadius: BorderRadius.circular(30),
-                          border: Border.all(color: const Color(0xFFE0E0E0)),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.grey[700]!
+                                : const Color(0xFFE0E0E0),
+                          ),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               _currentSort.icon,
                               size: 18,
-                              color: const Color(0xFF2196F3),
+                              color: theme.colorScheme.primary,
                             ),
                             const SizedBox(width: 4),
-                            const Text(
+                            Text(
                               'Sort',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF2196F3),
+                                color: theme.colorScheme.primary,
                               ),
                             ),
                             Icon(
@@ -395,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ? Icons.keyboard_arrow_up
                                   : Icons.keyboard_arrow_down,
                               size: 18,
-                              color: const Color(0xFF2196F3),
+                              color: theme.colorScheme.primary,
                             ),
                           ],
                         ),
@@ -408,14 +446,17 @@ class _HomeScreenState extends State<HomeScreen> {
               // ── Sort Options Menu ──
               if (_isSortMenuVisible)
                 Container(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 6,
                   ),
                   child: Column(
                     children: [
-                      const Divider(height: 1),
+                      Divider(
+                        height: 1,
+                        color: isDark ? Colors.grey[800] : Colors.grey[300],
+                      ),
                       const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -423,12 +464,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           final isSelected = option == _currentSort;
                           return Expanded(
                             child: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _currentSort = option;
-                                  _isSortMenuVisible = false;
-                                });
-                              },
+                              onTap: () => setState(() {
+                                _currentSort = option;
+                                _isSortMenuVisible = false;
+                              }),
                               child: Container(
                                 margin: const EdgeInsets.symmetric(
                                   horizontal: 4,
@@ -438,7 +477,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? const Color(0xFFE3F2FD)
+                                      ? (isDark
+                                            ? theme.colorScheme.primary
+                                                  .withOpacity(0.2)
+                                            : const Color(0xFFE3F2FD))
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -448,8 +490,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                       option.icon,
                                       size: 18,
                                       color: isSelected
-                                          ? const Color(0xFF2196F3)
-                                          : const Color(0xFF757575),
+                                          ? theme.colorScheme.primary
+                                          : (isDark
+                                                ? Colors.grey[500]
+                                                : const Color(0xFF757575)),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
@@ -460,8 +504,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ? FontWeight.w600
                                             : FontWeight.normal,
                                         color: isSelected
-                                            ? const Color(0xFF2196F3)
-                                            : const Color(0xFF757575),
+                                            ? theme.colorScheme.primary
+                                            : (isDark
+                                                  ? Colors.grey[500]
+                                                  : const Color(0xFF757575)),
                                       ),
                                     ),
                                   ],
@@ -485,7 +531,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             Icon(
                               Icons.inbox_outlined,
                               size: 80,
-                              color: Colors.grey[400],
+                              color: isDark
+                                  ? Colors.grey[700]
+                                  : Colors.grey[400],
                             ),
                             const SizedBox(height: 16),
                             Text(
@@ -493,7 +541,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.grey[600],
+                                color: isDark
+                                    ? Colors.grey[500]
+                                    : Colors.grey[600],
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -501,7 +551,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               'Try adjusting your filters',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.grey[500],
+                                color: isDark
+                                    ? Colors.grey[600]
+                                    : Colors.grey[500],
                               ),
                             ),
                           ],
@@ -514,7 +566,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               crossAxisCount: 2,
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
-                              childAspectRatio: 0.75,
+                              childAspectRatio: 0.58,
                             ),
                         itemCount: filteredItems.length,
                         itemBuilder: (context, index) {
@@ -534,6 +586,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showItemDetails(BuildContext context, LostFoundItem item) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -543,9 +598,9 @@ class _HomeScreenState extends State<HomeScreen> {
         minChildSize: 0.5,
         maxChildSize: 0.95,
         builder: (_, controller) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
@@ -554,7 +609,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: isDark ? Colors.grey[700] : Colors.grey[300],
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -563,19 +618,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   controller: controller,
                   padding: const EdgeInsets.all(20),
                   children: [
-                    // ── Item image (fixed) ──
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         height: 200,
                         width: double.infinity,
-                        color: Colors.grey[200],
-                        child: _buildDetailImage(item), // ← THE FIX
+                        color: isDark ? Colors.grey[800] : Colors.grey[200],
+                        child: _buildDetailImage(item, context),
                       ),
                     ),
                     const SizedBox(height: 20),
-
-                    // Status and time
                     Row(
                       children: [
                         Container(
@@ -601,51 +653,53 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Spacer(),
                         Text(
                           item.timeAgo,
-                          style: const TextStyle(
-                            color: Color(0xFF999999),
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.grey[500]
+                                : const Color(0xFF999999),
                             fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-
-                    // Title
                     Text(
                       item.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Location
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.location_on,
                           size: 18,
-                          color: Color(0xFF757575),
+                          color: isDark
+                              ? Colors.grey[400]
+                              : const Color(0xFF757575),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           item.location,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
-                            color: Color(0xFF757575),
+                            color: isDark
+                                ? Colors.grey[400]
+                                : const Color(0xFF757575),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 20),
-
-                    // Description
-                    const Text(
+                    Text(
                       'Description',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -653,34 +707,40 @@ class _HomeScreenState extends State<HomeScreen> {
                       item.description.isNotEmpty
                           ? item.description
                           : 'No description provided',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF555555),
+                        color: isDark
+                            ? Colors.grey[400]
+                            : const Color(0xFF555555),
                         height: 1.5,
                       ),
                     ),
                     const SizedBox(height: 20),
-
-                    // Contact Info
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF5F5F5),
+                        color: isDark
+                            ? Colors.grey[800]!
+                            : const Color(0xFFF5F5F5),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.info_outline,
-                            color: Color(0xFF2196F3),
+                            color: theme.colorScheme.primary,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              item.contactInfo,
-                              style: const TextStyle(
+                              item.contactInfo.isNotEmpty
+                                  ? item.contactInfo
+                                  : 'No contact information provided',
+                              style: TextStyle(
                                 fontSize: 14,
-                                color: Color(0xFF333333),
+                                color: isDark
+                                    ? Colors.grey[300]
+                                    : const Color(0xFF333333),
                               ),
                             ),
                           ),
@@ -688,8 +748,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 30),
-
-                    // Action buttons
                     if (item.status != ItemStatus.claimed) ...[
                       Row(
                         children: [
@@ -697,7 +755,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: ElevatedButton(
                               onPressed: () {},
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2196F3),
+                                backgroundColor: theme.colorScheme.primary,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
@@ -723,13 +781,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 56,
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: const Color(0xFFE0E0E0),
+                                color: isDark
+                                    ? Colors.grey[700]!
+                                    : const Color(0xFFE0E0E0),
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: IconButton(
                               icon: const Icon(Icons.share),
-                              color: const Color(0xFF555555),
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : const Color(0xFF555555),
                               onPressed: () {},
                             ),
                           ),
@@ -756,45 +818,33 @@ class _HomeScreenState extends State<HomeScreen> {
         return const Color(0xFF43A047);
     }
   }
-
-  IconData _getIconForPath(String path) {
-    if (path.contains('Bottle')) return Icons.local_drink;
-    if (path.contains('calc')) return Icons.calculate;
-    if (path.contains('keys')) return Icons.vpn_key;
-    if (path.contains('charger')) return Icons.battery_charging_full;
-    if (path.contains('headphones')) return Icons.headphones;
-    return Icons.image;
-  }
-
-  String _getFileName(String path) {
-    final uri = Uri.file(path);
-    return uri.pathSegments.last.replaceAll('.png', '').replaceAll('.jpg', '');
-  }
-} // ← _HomeScreenState ends here
+}
 
 // ─────────────────────────────────────────────
 // ITEM IMAGE WIDGET
 // ─────────────────────────────────────────────
+
 class _ItemImage extends StatelessWidget {
   final String imagePath;
   final bool isClaimed;
 
   const _ItemImage({required this.imagePath, required this.isClaimed});
 
-  Widget _buildImage(BoxFit fit) {
+  Widget _buildImage(BoxFit fit, BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (imagePath.isEmpty) {
       return Container(
-        color: const Color(0xFFE3F2FD),
+        color: isDark ? Colors.grey[800] : const Color(0xFFE3F2FD),
         child: Center(
           child: Icon(
             Icons.image_not_supported,
             size: 48,
-            color: Colors.grey[400],
+            color: isDark ? Colors.grey[600] : Colors.grey[400],
           ),
         ),
       );
     }
-
     if (imagePath.startsWith('assets/')) {
       return Image.asset(
         imagePath,
@@ -803,7 +853,7 @@ class _ItemImage extends StatelessWidget {
           child: Icon(
             _getIconForPath(imagePath),
             size: 48,
-            color: Colors.grey[400],
+            color: isDark ? Colors.grey[600] : Colors.grey[400],
           ),
         ),
       );
@@ -812,7 +862,11 @@ class _ItemImage extends StatelessWidget {
         File(imagePath),
         fit: fit,
         errorBuilder: (_, __, ___) => Center(
-          child: Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+          child: Icon(
+            Icons.broken_image,
+            size: 48,
+            color: isDark ? Colors.grey[600] : Colors.grey[400],
+          ),
         ),
       );
     }
@@ -820,47 +874,51 @@ class _ItemImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 100, // This controls the height of the image container
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SizedBox(
+      height: 120,
       width: double.infinity,
-      color: Colors.grey[200],
-      child: isClaimed
-          ? Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildImage(BoxFit.cover),
-                Container(color: Colors.black.withOpacity(0.5)),
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8), // Reduced from 12
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
+      child: ColoredBox(
+        color: isDark ? Colors.grey[900]! : Colors.grey.shade200,
+        child: isClaimed
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildImage(BoxFit.cover, context),
+                  Container(color: Colors.black.withOpacity(0.5)),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.check_circle,
+                            size: 24,
+                            color: Color(0xFF43A047),
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.check_circle,
-                          size: 24, // Reduced from 32
-                          color: Color(0xFF43A047),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Returned to Owner',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4), // Reduced from 8
-                      const Text(
-                        'Returned to Owner',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11, // Reduced from 14
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            )
-          : _buildImage(BoxFit.cover),
+                ],
+              )
+            : _buildImage(BoxFit.cover, context),
+      ),
     );
   }
 
@@ -873,6 +931,7 @@ class _ItemImage extends StatelessWidget {
     return Icons.image;
   }
 }
+
 // ─────────────────────────────────────────────
 // ITEM CARD
 // ─────────────────────────────────────────────
@@ -912,15 +971,20 @@ class _ItemCardState extends State<_ItemCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: isDark
+                  ? Colors.transparent
+                  : Colors.black.withOpacity(0.04),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -929,7 +993,7 @@ class _ItemCardState extends State<_ItemCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image area with badges
+            // ── Image area with badges ──
             Stack(
               children: [
                 ClipRRect(
@@ -944,12 +1008,12 @@ class _ItemCardState extends State<_ItemCard> {
 
                 // Status Badge
                 Positioned(
-                  top: 12,
-                  left: 12,
+                  top: 8,
+                  left: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                      horizontal: 8,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: _badgeColor,
@@ -965,14 +1029,14 @@ class _ItemCardState extends State<_ItemCard> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(_getStatusIcon(), size: 12, color: Colors.white),
-                        const SizedBox(width: 4),
+                        Icon(_getStatusIcon(), size: 10, color: Colors.white),
+                        const SizedBox(width: 3),
                         Text(
                           _badgeText,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
-                            fontSize: 11,
+                            fontSize: 10,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -983,19 +1047,23 @@ class _ItemCardState extends State<_ItemCard> {
 
                 // Time indicator
                 Positioned(
-                  top: 12,
-                  right: 12,
+                  top: 8,
+                  right: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                      horizontal: 6,
+                      vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      color: isDark
+                          ? Colors.grey[800]!.withOpacity(0.9)
+                          : Colors.white.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(6),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: isDark
+                              ? Colors.transparent
+                              : Colors.black.withOpacity(0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1006,16 +1074,16 @@ class _ItemCardState extends State<_ItemCard> {
                       children: [
                         Icon(
                           Icons.access_time,
-                          size: 12,
-                          color: Colors.grey[700],
+                          size: 10,
+                          color: isDark ? Colors.grey[400] : Colors.grey[700],
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 3),
                         Text(
                           widget.item.timeAgo,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
+                            color: isDark ? Colors.grey[400] : Colors.grey[800],
                           ),
                         ),
                       ],
@@ -1026,17 +1094,19 @@ class _ItemCardState extends State<_ItemCard> {
                 // Save button
                 if (!_isClaimed)
                   Positioned(
-                    bottom: 12,
-                    right: 12,
+                    bottom: 8,
+                    right: 8,
                     child: Container(
-                      height: 32,
-                      width: 32,
+                      height: 28,
+                      width: 28,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? Colors.grey[800]! : Colors.white,
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: isDark
+                                ? Colors.transparent
+                                : Colors.black.withOpacity(0.1),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -1046,17 +1116,18 @@ class _ItemCardState extends State<_ItemCard> {
                         padding: EdgeInsets.zero,
                         icon: Icon(
                           _isSaved ? Icons.bookmark : Icons.bookmark_outline,
-                          size: 18,
+                          size: 16,
                           color: _isSaved
-                              ? const Color(0xFF2196F3)
-                              : const Color(0xFF555555),
+                              ? theme.colorScheme.primary
+                              : (isDark
+                                    ? Colors.grey[400]
+                                    : const Color(0xFF555555)),
                         ),
                         onPressed: () {
                           final saved = savedItemsNotifier.value;
                           final alreadySaved = saved.any(
                             (s) => s.id == widget.item.id,
                           );
-
                           if (alreadySaved) {
                             savedItemsNotifier.value = saved
                                 .where((s) => s.id != widget.item.id)
@@ -1064,9 +1135,7 @@ class _ItemCardState extends State<_ItemCard> {
                           } else {
                             savedItemsNotifier.value = [...saved, widget.item];
                           }
-
                           setState(() => _isSaved = !alreadySaved);
-
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -1076,6 +1145,7 @@ class _ItemCardState extends State<_ItemCard> {
                               ),
                               duration: const Duration(seconds: 1),
                               behavior: SnackBarBehavior.floating,
+                              backgroundColor: isDark ? Colors.grey[900] : null,
                             ),
                           );
                         },
@@ -1085,93 +1155,86 @@ class _ItemCardState extends State<_ItemCard> {
               ],
             ),
 
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.item.title,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: _isClaimed
-                                ? const Color(0xFF999999)
-                                : const Color(0xFF111111),
-                            decoration: _isClaimed
-                                ? TextDecoration.lineThrough
-                                : null,
-                            decorationColor: const Color(0xFF999999),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (!_isClaimed)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF5F5F5),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '#${widget.item.id}',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF999999),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 16,
-                        color: Color(0xFF757575),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          widget.item.location,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF757575),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  if (widget.item.description.isNotEmpty && !_isClaimed) ...[
-                    const SizedBox(height: 8),
+            // ── Content ──
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title + ID badge
                     Row(
                       children: [
-                        const Icon(
-                          Icons.description_outlined,
-                          size: 16,
-                          color: Color(0xFF757575),
-                        ),
-                        const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            widget.item.description,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF888888),
+                            widget.item.title,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: _isClaimed
+                                  ? (isDark
+                                        ? Colors.grey[600]
+                                        : const Color(0xFF999999))
+                                  : (isDark
+                                        ? Colors.white
+                                        : const Color(0xFF111111)),
+                              decoration: _isClaimed
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              decorationColor: isDark
+                                  ? Colors.grey[600]
+                                  : const Color(0xFF999999),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (!_isClaimed)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.grey[800]!
+                                  : const Color(0xFFF5F5F5),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '#${widget.item.id}',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: isDark
+                                    ? Colors.grey[500]
+                                    : const Color(0xFF999999),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Location
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 13,
+                          color: isDark
+                              ? Colors.grey[500]
+                              : const Color(0xFF757575),
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            widget.item.location,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? Colors.grey[500]
+                                  : const Color(0xFF757575),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1179,97 +1242,143 @@ class _ItemCardState extends State<_ItemCard> {
                         ),
                       ],
                     ),
-                  ],
 
-                  const SizedBox(height: 16),
-
-                  if (!_isClaimed) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    widget.item.status == ItemStatus.lost
-                                        ? 'Contacting owner...'
-                                        : 'Claiming item...',
-                                  ),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2196F3),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
+                    // Description (only if present and not claimed)
+                    if (widget.item.description.isNotEmpty && !_isClaimed) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.description_outlined,
+                            size: 13,
+                            color: isDark
+                                ? Colors.grey[500]
+                                : const Color(0xFF757575),
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
                             child: Text(
-                              widget.item.status == ItemStatus.lost
-                                  ? 'Contact Owner'
-                                  : 'Claim Item',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFFE0E0E0)),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.share_outlined, size: 20),
-                            color: const Color(0xFF555555),
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Sharing item...'),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: widget.onTap,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF757575),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              side: const BorderSide(color: Color(0xFFE0E0E0)),
-                            ),
-                            child: const Text(
-                              'View Details',
+                              widget.item.description,
                               style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                                color: isDark
+                                    ? Colors.grey[500]
+                                    : const Color(0xFF888888),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    const Spacer(),
+
+                    // Action button
+                    if (!_isClaimed) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      widget.item.status == ItemStatus.lost
+                                          ? 'Contacting owner...'
+                                          : 'Claiming item...',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                    backgroundColor: isDark
+                                        ? Colors.grey[900]
+                                        : null,
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: Text(
+                                widget.item.status == ItemStatus.lost
+                                    ? 'Contact'
+                                    : 'Claim',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.grey[700]!
+                                    : const Color(0xFFE0E0E0),
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.share_outlined, size: 16),
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : const Color(0xFF555555),
+                              padding: EdgeInsets.zero,
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Sharing item...'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: widget.onTap,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark
+                                ? Colors.grey[400]
+                                : const Color(0xFF757575),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            side: BorderSide(
+                              color: isDark
+                                  ? Colors.grey[700]!
+                                  : const Color(0xFFE0E0E0),
+                            ),
+                          ),
+                          child: const Text(
+                            'View Details',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ],

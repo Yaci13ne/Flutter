@@ -407,12 +407,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final secondaryTextColor = isDark ? Colors.grey[400] : Colors.black54;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final borderColor = isDark ? Colors.grey[800]! : const Color(0xFFEEEEEE);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopBar(),
+            _buildTopBar(theme, isDark),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -420,17 +427,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 16),
                     _buildAvatar(),
                     const SizedBox(height: 12),
-                    _buildUserInfo(),
+                    _buildUserInfo(theme, isDark),
                     const SizedBox(height: 20),
-                    _buildStats(),
+                    _buildStats(isDark),
                     const SizedBox(height: 24),
-                    _buildBadges(),
+                    _buildBadges(isDark, textColor, secondaryTextColor),
                     const SizedBox(height: 16),
-                    _buildToggleTabs(),
+                    _buildToggleTabs(theme, isDark),
                     const SizedBox(height: 16),
                     _savedItemsSelected
-                        ? _buildSavedItems()
-                        : _buildMyReports(),
+                        ? _buildSavedItems(
+                            isDark,
+                            cardColor,
+                            borderColor,
+                            textColor,
+                            secondaryTextColor,
+                          )
+                        : _buildMyReports(
+                            isDark,
+                            cardColor,
+                            borderColor,
+                            textColor,
+                            secondaryTextColor,
+                          ),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -442,23 +461,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(ThemeData theme, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'My Profile',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: Colors.black,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           GestureDetector(
             onTap: () {},
-            child: const Icon(Icons.settings, color: Colors.black87, size: 26),
+            child: Icon(
+              Icons.settings,
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+              size: 26,
+            ),
           ),
         ],
       ),
@@ -518,36 +541,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildUserInfo() {
+  Widget _buildUserInfo(ThemeData theme, bool isDark) {
     return Column(
-      children: const [
+      children: [
         Text(
           'Alex Rivers',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w800,
-            color: Colors.black,
+            color: theme.colorScheme.onSurface,
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           '@arivers_24',
           style: TextStyle(
             fontSize: 14,
-            color: Color(0xFF2979FF),
+            color: theme.colorScheme.primary,
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           'Computer Science Dept.',
-          style: TextStyle(fontSize: 13, color: Colors.black54),
+          style: TextStyle(
+            fontSize: 13,
+            color: isDark ? Colors.grey[400] : Colors.black54,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildStats() {
+  Widget _buildStats(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
@@ -556,7 +582,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: _buildStatCard(
               '24',
               'POSTS',
-              const Color(0xFFE8F4FF),
+              isDark ? const Color(0xFF1E3A5F) : const Color(0xFFE8F4FF),
               const Color(0xFF2979FF),
             ),
           ),
@@ -565,7 +591,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: _buildStatCard(
               '12',
               'RECOVERIES',
-              const Color(0xFFEAF9F0),
+              isDark ? const Color(0xFF1E3A2E) : const Color(0xFFEAF9F0),
               const Color(0xFF2ECC71),
             ),
           ),
@@ -611,7 +637,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildBadges() {
+  Widget _buildBadges(bool isDark, Color textColor, Color? secondaryTextColor) {
     final preview = allBadges.take(3).toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -622,12 +648,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Badges',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
-                      color: Colors.black,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -637,7 +663,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
+                      color: isDark
+                          ? Colors.blue.withOpacity(0.2)
+                          : Colors.blue.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -687,7 +715,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 14),
           Row(
             children: preview
-                .map((b) => Expanded(child: _buildBadgeItem(b)))
+                .map((b) => Expanded(child: _buildBadgeItem(b, isDark)))
                 .toList(),
           ),
         ],
@@ -695,7 +723,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildBadgeItem(BadgeData badge) {
+  Widget _buildBadgeItem(BadgeData badge, bool isDark) {
     return Column(
       children: [
         Stack(
@@ -731,10 +759,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 8),
         Text(
           badge.label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
+            color: isDark ? Colors.white70 : Colors.black87,
           ),
           textAlign: TextAlign.center,
           maxLines: 2,
@@ -744,19 +772,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildToggleTabs() {
+  Widget _buildToggleTabs(ThemeData theme, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          Expanded(child: _buildTab('Saved Items', true)),
-          Expanded(child: _buildTab('My Reports', false)),
+          Expanded(child: _buildTab('Saved Items', true, theme, isDark)),
+          Expanded(child: _buildTab('My Reports', false, theme, isDark)),
         ],
       ),
     );
   }
 
-  Widget _buildTab(String label, bool isSaved) {
+  Widget _buildTab(String label, bool isSaved, ThemeData theme, bool isDark) {
     final isSelected = _savedItemsSelected == isSaved;
     return GestureDetector(
       onTap: () => setState(() => _savedItemsSelected = isSaved),
@@ -767,7 +795,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: isSelected ? const Color(0xFF2979FF) : Colors.black45,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : (isDark ? Colors.grey[500] : Colors.black45),
             ),
           ),
           const SizedBox(height: 8),
@@ -775,7 +805,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             height: 2,
             margin: const EdgeInsets.symmetric(horizontal: 20),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF2979FF) : Colors.transparent,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -784,18 +816,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSavedItems() {
+  Widget _buildSavedItems(
+    bool isDark,
+    Color cardColor,
+    Color borderColor,
+    Color textColor,
+    Color? secondaryTextColor,
+  ) {
     return ValueListenableBuilder<List<LostFoundItem>>(
       valueListenable: savedItemsNotifier,
       builder: (context, saved, _) {
         if (saved.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(32),
+              padding: const EdgeInsets.all(32),
               child: Text(
                 'No saved items yet.\nTap the bookmark on any item to save it.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black45, fontSize: 14),
+                style: TextStyle(
+                  color: isDark ? Colors.grey[500] : Colors.black45,
+                  fontSize: 14,
+                ),
               ),
             ),
           );
@@ -817,6 +858,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               return _buildItemCard(
                 ItemData(item.title, item.location, item.imagePath),
                 index,
+                isDark,
+                cardColor,
+                borderColor,
+                textColor,
+                secondaryTextColor!,
               );
             },
           ),
@@ -825,7 +871,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildItemCard(ItemData item, int index) {
+  Widget _buildItemCard(
+    ItemData item,
+    int index,
+    bool isDark,
+    Color cardColor,
+    Color borderColor,
+    Color textColor,
+    Color secondaryTextColor,
+  ) {
     final isSaved = _savedIndices.contains(index);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -841,13 +895,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: double.infinity,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
-                    color: const Color(0xFFF0F0F0),
+                    color: isDark ? Colors.grey[800] : const Color(0xFFF0F0F0),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.image_not_supported_outlined,
-                          color: Colors.grey,
+                          color: isDark ? Colors.grey[600] : Colors.grey,
                           size: 30,
                         ),
                         const SizedBox(height: 4),
@@ -855,7 +909,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           'Image not found',
                           style: TextStyle(
                             fontSize: 10,
-                            color: Colors.grey[600],
+                            color: isDark ? Colors.grey[600] : Colors.grey[600],
                           ),
                         ),
                       ],
@@ -873,11 +927,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? Colors.grey[800] : Colors.white,
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.white.withOpacity(0.1),
+                          color: isDark
+                              ? Colors.transparent
+                              : Colors.white.withOpacity(0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 1),
                         ),
@@ -897,10 +953,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 8),
         Text(
           item.title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: textColor,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -908,16 +964,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 3),
         Row(
           children: [
-            const Icon(
+            Icon(
               Icons.location_on_outlined,
               size: 12,
-              color: Colors.black45,
+              color: secondaryTextColor,
             ),
             const SizedBox(width: 2),
             Expanded(
               child: Text(
                 item.location,
-                style: const TextStyle(fontSize: 11, color: Colors.black45),
+                style: TextStyle(fontSize: 11, color: secondaryTextColor),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -928,26 +984,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildMyReports() {
+  Widget _buildMyReports(
+    bool isDark,
+    Color cardColor,
+    Color borderColor,
+    Color textColor,
+    Color? secondaryTextColor,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        children: myReports.map((r) => _buildReportCard(r)).toList(),
+        children: myReports
+            .map(
+              (r) => _buildReportCard(
+                r,
+                isDark,
+                cardColor,
+                borderColor,
+                textColor,
+                secondaryTextColor!,
+              ),
+            )
+            .toList(),
       ),
     );
   }
 
-  Widget _buildReportCard(ReportData report) {
+  Widget _buildReportCard(
+    ReportData report,
+    bool isDark,
+    Color cardColor,
+    Color borderColor,
+    Color textColor,
+    Color secondaryTextColor,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFEEEEEE), width: 1.5),
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: isDark ? Colors.transparent : Colors.black.withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -959,7 +1039,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: report.iconColor.withOpacity(0.12),
+              color: report.iconColor.withOpacity(isDark ? 0.2 : 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(report.icon, color: report.iconColor, size: 24),
@@ -971,34 +1051,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   report.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: textColor,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.location_on_outlined,
                       size: 11,
-                      color: Colors.black45,
+                      color: secondaryTextColor,
                     ),
                     const SizedBox(width: 2),
                     Text(
                       report.location,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.black45,
-                      ),
+                      style: TextStyle(fontSize: 11, color: secondaryTextColor),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
                   report.date,
-                  style: const TextStyle(fontSize: 11, color: Colors.black38),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.grey[600] : Colors.black38,
+                  ),
                 ),
               ],
             ),
@@ -1006,7 +1086,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: report.statusColor.withOpacity(0.12),
+              color: report.statusColor.withOpacity(isDark ? 0.2 : 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -1031,27 +1111,29 @@ class AllBadgesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     int earnedCount = allBadges.where((badge) => badge.isEarned).length;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         elevation: 0,
         leading: GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: const Icon(
+          child: Icon(
             Icons.arrow_back_ios_new,
-            color: Colors.black87,
+            color: theme.colorScheme.onSurface,
             size: 20,
           ),
         ),
-        title: const Text(
+        title: Text(
           'All Badges',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         centerTitle: true,
@@ -1068,7 +1150,9 @@ class AllBadgesScreen extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: isDark
+                        ? Colors.blue.withOpacity(0.2)
+                        : Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -1087,7 +1171,9 @@ class AllBadgesScreen extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    color: isDark
+                        ? Colors.green.withOpacity(0.2)
+                        : Colors.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -1132,17 +1218,18 @@ class AllBadgesScreen extends StatelessWidget {
             childAspectRatio: 0.9,
           ),
           itemCount: allBadges.length,
-          itemBuilder: (context, index) => _buildBadgeCard(allBadges[index]),
+          itemBuilder: (context, index) =>
+              _buildBadgeCard(allBadges[index], isDark),
         ),
       ),
     );
   }
 
-  Widget _buildBadgeCard(BadgeData badge) {
+  Widget _buildBadgeCard(BadgeData badge, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: badge.color.withOpacity(0.08),
+        color: badge.color.withOpacity(isDark ? 0.15 : 0.08),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: badge.isEarned
@@ -1199,7 +1286,10 @@ class AllBadgesScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   badge.description,
-                  style: const TextStyle(fontSize: 9, color: Colors.black45),
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: isDark ? Colors.grey[400] : Colors.black45,
+                  ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -1211,7 +1301,9 @@ class AllBadgesScreen extends StatelessWidget {
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
+                  color: isDark
+                      ? Colors.black.withOpacity(0.5)
+                      : Colors.white.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Center(

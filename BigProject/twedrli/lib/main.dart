@@ -1,3 +1,4 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:twedrli/fabtab.dart';
 import 'package:twedrli/theme/theme_modifier.dart';
@@ -12,7 +13,7 @@ class TwedrliApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeModeNotifier, // 👈 listens for toggle
+      valueListenable: themeModeNotifier,
       builder: (context, themeMode, _) {
         return MaterialApp(
           title: 'Twedrli',
@@ -26,6 +27,13 @@ class TwedrliApp extends StatelessWidget {
             ),
             fontFamily: 'SF Pro Display',
             useMaterial3: true,
+            scaffoldBackgroundColor: const Color(0xFFF4F6F8),
+            appBarTheme: const AppBarTheme(
+              elevation: 0,
+              centerTitle: true,
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF1E1E1E),
+            ),
           ),
 
           // ─── Dark Theme ───────────────────────────────────────────
@@ -36,9 +44,16 @@ class TwedrliApp extends StatelessWidget {
             ),
             fontFamily: 'SF Pro Display',
             useMaterial3: true,
+            scaffoldBackgroundColor: const Color(0xFF1E1E1E),
+            appBarTheme: const AppBarTheme(
+              elevation: 0,
+              centerTitle: true,
+              backgroundColor: Color(0xFF1E1E1E),
+              foregroundColor: Colors.white,
+            ),
           ),
 
-          themeMode: themeMode, // 👈 ThemeMode.light / .dark / .system
+          themeMode: themeMode,
           home: const FabTabs(),
         );
       },
@@ -47,8 +62,6 @@ class TwedrliApp extends StatelessWidget {
 }
 
 // ─── Shared Colors ────────────────────────────────────────────────────────────
-// Tip: for dark-mode-aware colors, prefer Theme.of(context).colorScheme
-// in your widgets instead of these constants where possible.
 const kBlue = Color(0xFF1E9BF0);
 const kBlueDark = Color(0xFF1578C2);
 const kBlueBg = Color(0xFFE8F4FD);

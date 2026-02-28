@@ -23,18 +23,18 @@ class _FabTabsState extends State<FabTabs> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
 
+    return Scaffold(
       key: _scaffoldKey, // 👈 attach key
 
       drawer: const AppDrawer(), // 👈 attach the sidebar
 
-
-
       body: IndexedStack(
         index: currentIndex,
-        children: [
+        children: const [
           HomeScreen(),
           TwedrliSearchScreen(),
           ActivityScreen(),
@@ -50,7 +50,7 @@ class _FabTabsState extends State<FabTabs> {
             MaterialPageRoute(builder: (context) => const CreatePostScreen()),
           );
         },
-        backgroundColor: const Color(0xFF13A4EC),
+        backgroundColor: primaryColor,
         elevation: 3,
         shape: const CircleBorder(),
         child: const Icon(Icons.add, color: Colors.white),
@@ -60,21 +60,28 @@ class _FabTabsState extends State<FabTabs> {
 
       /// BOTTOM NAV BAR
       bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,
+        elevation: isDark ? 0 : 8,
         child: SizedBox(
           height: 60,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildNavItem(Icons.home, "Home", 0),
-              _buildNavItem(Icons.search, "Search", 1),
+              _buildNavItem(Icons.home, "Home", 0, primaryColor, isDark),
+              _buildNavItem(Icons.search, "Search", 1, primaryColor, isDark),
 
               const SizedBox(width: 50), // space for FAB
 
-              _buildNavItem(Icons.bar_chart, "Activity", 2),
-              _buildNavItem(Icons.person, "Profile", 3),
+              _buildNavItem(
+                Icons.bar_chart,
+                "Activity",
+                2,
+                primaryColor,
+                isDark,
+              ),
+              _buildNavItem(Icons.person, "Profile", 3, primaryColor, isDark),
             ],
           ),
         ),
@@ -82,7 +89,13 @@ class _FabTabsState extends State<FabTabs> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildNavItem(
+    IconData icon,
+    String label,
+    int index,
+    Color primaryColor,
+    bool isDark,
+  ) {
     final bool isSelected = currentIndex == index;
 
     return MaterialButton(
@@ -95,12 +108,19 @@ class _FabTabsState extends State<FabTabs> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: isSelected ? const Color(0xFF13A4EC) : Colors.grey),
+          Icon(
+            icon,
+            color: isSelected
+                ? primaryColor
+                : (isDark ? Colors.grey[500] : Colors.grey),
+          ),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
-              color: isSelected ? const Color(0xFF13A4EC) : Colors.grey,
+              color: isSelected
+                  ? primaryColor
+                  : (isDark ? Colors.grey[500] : Colors.grey),
             ),
           ),
         ],

@@ -41,8 +41,16 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final borderColor = isDark ? Colors.grey[800]! : const Color(0xFFD6DCE5);
+    final inputBgColor = isDark ? Colors.grey[900]! : const Color(0xFFE9EDF2);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -55,22 +63,23 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                 /// HEADER
                 Row(
                   children: [
-                    const Icon(Icons.search, color: Color(0xFF1E88E5)),
+                    Icon(Icons.search, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       "Twedrli Search",
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
+                        color: textColor,
                       ),
                     ),
                     const Spacer(),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: const Text(
+                      child: Text(
                         "Cancel",
                         style: TextStyle(
-                          color: Color(0xFF1E88E5),
+                          color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -84,12 +93,15 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   height: 50,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE9EDF2),
+                    color: inputBgColor,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.search, color: Colors.grey),
+                      Icon(
+                        Icons.search,
+                        color: isDark ? Colors.grey[500] : Colors.grey,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextField(
@@ -98,9 +110,13 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                               searchQuery = value;
                             });
                           },
-                          decoration: const InputDecoration(
+                          style: TextStyle(color: textColor),
+                          decoration: InputDecoration(
                             hintText:
                                 "Search for lost items (e.g., 'Blue Wallet')...",
+                            hintStyle: TextStyle(
+                              color: isDark ? Colors.grey[600] : Colors.grey,
+                            ),
                             border: InputBorder.none,
                           ),
                         ),
@@ -113,11 +129,12 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                 /// ADVANCED FILTERS
                 Row(
                   children: [
-                    const Text(
+                    Text(
                       "Advanced Filters",
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: textColor,
                       ),
                     ),
                     const Spacer(),
@@ -131,10 +148,10 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                           searchQuery = "";
                         });
                       },
-                      child: const Text(
+                      child: Text(
                         "Clear All",
                         style: TextStyle(
-                          color: Color(0xFF1E88E5),
+                          color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -144,23 +161,41 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
                 const SizedBox(height: 20),
 
-                const Text(
+                Text(
                   "Object Type",
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                buildObjectTypeField(context),
+                buildObjectTypeField(
+                  context,
+                  isDark,
+                  borderColor,
+                  textColor,
+                  secondaryTextColor!,
+                ),
                 const SizedBox(height: 18),
 
-                const Text(
+                Text(
                   "Campus Zone",
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                buildCampusZoneField(context),
+                buildCampusZoneField(
+                  context,
+                  isDark,
+                  borderColor,
+                  textColor,
+                  secondaryTextColor,
+                ),
                 const SizedBox(height: 18),
 
-                const Row(
+                Row(
                   children: [
                     Expanded(
                       child: Column(
@@ -168,24 +203,30 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                         children: [
                           Text(
                             "From Date",
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                            ),
                           ),
-                          SizedBox(height: 8),
-                          DateField(),
+                          const SizedBox(height: 8),
+                          DateField(isDark: isDark, borderColor: borderColor),
                         ],
                       ),
                     ),
-                    SizedBox(width: 16),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             "To Date",
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                            ),
                           ),
-                          SizedBox(height: 8),
-                          DateField(),
+                          const SizedBox(height: 8),
+                          DateField(isDark: isDark, borderColor: borderColor),
                         ],
                       ),
                     ),
@@ -194,9 +235,12 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
                 const SizedBox(height: 20),
 
-                const Text(
+                Text(
                   "Item Color",
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
                 ),
 
                 const SizedBox(height: 12),
@@ -205,13 +249,13 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     buildAllColorsDot(),
-                    buildColorDot(Colors.black),
-                    buildColorDot(const Color(0xFFD6D6D6)),
-                    buildColorDot(const Color(0xFF2E63D6)),
-                    buildColorDot(const Color(0xFFE21E1E)),
-                    buildColorDot(const Color(0xFFF3C200)),
-                    buildColorDot(const Color(0xFF1B9E3F)),
-                    buildColorDot(const Color(0xFF8A2BE2)),
+                    buildColorDot(Colors.black, isDark),
+                    buildColorDot(const Color(0xFFD6D6D6), isDark),
+                    buildColorDot(const Color(0xFF2E63D6), isDark),
+                    buildColorDot(const Color(0xFFE21E1E), isDark),
+                    buildColorDot(const Color(0xFFF3C200), isDark),
+                    buildColorDot(const Color(0xFF1B9E3F), isDark),
+                    buildColorDot(const Color(0xFF8A2BE2), isDark),
                   ],
                 ),
 
@@ -226,7 +270,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                     width: double.infinity,
                     height: 55,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E88E5),
+                      color: theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     alignment: Alignment.center,
@@ -248,15 +292,16 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                   children: [
                     Text(
                       "Matching Items (${filteredItems.length})",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: textColor,
                       ),
                     ),
                     const Spacer(),
-                    const Text(
+                    Text(
                       "Sorted by: Newest",
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: secondaryTextColor),
                     ),
                   ],
                 ),
@@ -276,7 +321,13 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                   itemCount: filteredItems.length,
                   itemBuilder: (context, index) {
                     final item = filteredItems[index];
-                    return ItemCard(item: item);
+                    return ItemCard(
+                      item: item,
+                      isDark: isDark,
+                      cardColor: cardColor,
+                      textColor: textColor,
+                      secondaryTextColor: secondaryTextColor,
+                    );
                   },
                 ),
                 const SizedBox(height: 90),
@@ -288,16 +339,22 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
     );
   }
 
-  Widget buildObjectTypeField(BuildContext context) {
+  Widget buildObjectTypeField(
+    BuildContext context,
+    bool isDark,
+    Color borderColor,
+    Color textColor,
+    Color secondaryTextColor,
+  ) {
     return GestureDetector(
-      onTap: () => _openTypeSelector(context),
+      onTap: () => _openTypeSelector(context, isDark),
       child: Container(
         height: 50,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFD6DCE5)),
-          color: Colors.white,
+          border: Border.all(color: borderColor),
+          color: isDark ? Colors.grey[900] : Colors.white,
         ),
         child: Row(
           children: [
@@ -305,21 +362,22 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
               child: Text(
                 selectedType ?? "Select type (Phone, Bag, ID...)",
                 style: TextStyle(
-                  color: selectedType == null ? Colors.grey : Colors.black,
+                  color: selectedType == null ? secondaryTextColor : textColor,
                 ),
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down),
+            Icon(Icons.keyboard_arrow_down, color: secondaryTextColor),
           ],
         ),
       ),
     );
   }
 
-  void _openTypeSelector(BuildContext context) {
+  void _openTypeSelector(BuildContext context, bool isDark) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -353,12 +411,36 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                                 .toList();
                           });
                         },
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
                         decoration: InputDecoration(
                           hintText: "Search type...",
-                          prefixIcon: const Icon(Icons.search),
+                          hintStyle: TextStyle(
+                            color: isDark ? Colors.grey[500] : Colors.grey,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: isDark ? Colors.grey[500] : Colors.grey,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: isDark
+                                  ? Colors.grey[800]!
+                                  : Colors.grey[300]!,
+                            ),
                           ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: isDark
+                                  ? Colors.grey[800]!
+                                  : Colors.grey[300]!,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: isDark ? Colors.grey[900] : Colors.white,
                         ),
                       ),
                     ),
@@ -368,7 +450,12 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                         itemCount: filteredList.length,
                         itemBuilder: (context, index) {
                           return ListTile(
-                            title: Text(filteredList[index]),
+                            title: Text(
+                              filteredList[index],
+                              style: TextStyle(
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
                             onTap: () {
                               setState(() {
                                 selectedType = filteredList[index];
@@ -389,16 +476,22 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
     );
   }
 
-  Widget buildCampusZoneField(BuildContext context) {
+  Widget buildCampusZoneField(
+    BuildContext context,
+    bool isDark,
+    Color borderColor,
+    Color textColor,
+    Color? secondaryTextColor,
+  ) {
     return GestureDetector(
-      onTap: () => _openZoneSelector(context),
+      onTap: () => _openZoneSelector(context, isDark),
       child: Container(
         height: 50,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFD6DCE5)),
-          color: Colors.white,
+          border: Border.all(color: borderColor),
+          color: isDark ? Colors.grey[900] : Colors.white,
         ),
         child: Row(
           children: [
@@ -406,21 +499,22 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
               child: Text(
                 selectedZone ?? "Select location (Faculty, Campus...)",
                 style: TextStyle(
-                  color: selectedZone == null ? Colors.grey : Colors.black,
+                  color: selectedZone == null ? secondaryTextColor : textColor,
                 ),
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down),
+            Icon(Icons.keyboard_arrow_down, color: secondaryTextColor),
           ],
         ),
       ),
     );
   }
 
-  void _openZoneSelector(BuildContext context) {
+  void _openZoneSelector(BuildContext context, bool isDark) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -450,12 +544,36 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                               .toList();
                         });
                       },
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
                       decoration: InputDecoration(
                         hintText: "Search zone...",
-                        prefixIcon: const Icon(Icons.search),
+                        hintStyle: TextStyle(
+                          color: isDark ? Colors.grey[500] : Colors.grey,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: isDark ? Colors.grey[500] : Colors.grey,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? Colors.grey[800]!
+                                : Colors.grey[300]!,
+                          ),
                         ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? Colors.grey[800]!
+                                : Colors.grey[300]!,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: isDark ? Colors.grey[900] : Colors.white,
                       ),
                     ),
                   ),
@@ -465,7 +583,12 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                       itemCount: filteredList.length,
                       itemBuilder: (context, index) {
                         return ListTile(
-                          title: Text(filteredList[index]),
+                          title: Text(
+                            filteredList[index],
+                            style: TextStyle(
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                          ),
                           onTap: () {
                             setState(() {
                               selectedZone = filteredList[index];
@@ -498,7 +621,10 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: isAllColorsSelected
-              ? Border.all(color: const Color(0xFF1E88E5), width: 2)
+              ? Border.all(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 2,
+                )
               : null,
         ),
         child: Container(
@@ -535,7 +661,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
     );
   }
 
-  Widget buildColorDot(Color color) {
+  Widget buildColorDot(Color color, bool isDark) {
     final isSelected = selectedColor == color;
 
     return GestureDetector(
@@ -550,10 +676,24 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: isSelected
-              ? Border.all(color: const Color(0xFF1E88E5), width: 2)
+              ? Border.all(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 2,
+                )
               : null,
         ),
-        child: CircleAvatar(radius: 16, backgroundColor: color),
+        child: CircleAvatar(
+          radius: 16,
+          backgroundColor: color,
+          child: color == const Color(0xFFD6D6D6) && isDark
+              ? Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
+                )
+              : null,
+        ),
       ),
     );
   }
@@ -571,7 +711,10 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 }
 
 class DateField extends StatelessWidget {
-  const DateField({super.key});
+  final bool isDark;
+  final Color borderColor;
+
+  const DateField({super.key, required this.isDark, required this.borderColor});
 
   @override
   Widget build(BuildContext context) {
@@ -580,15 +723,22 @@ class DateField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFD6DCE5)),
-        color: Colors.white,
+        border: Border.all(color: borderColor),
+        color: isDark ? Colors.grey[900] : Colors.white,
       ),
-      child: const Row(
+      child: Row(
         children: [
           Expanded(
-            child: Text("mm/dd/yyyy", style: TextStyle(color: Colors.grey)),
+            child: Text(
+              "mm/dd/yyyy",
+              style: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey),
+            ),
           ),
-          Icon(Icons.calendar_today, size: 18),
+          Icon(
+            Icons.calendar_today,
+            size: 18,
+            color: isDark ? Colors.grey[500] : Colors.grey,
+          ),
         ],
       ),
     );
@@ -597,8 +747,19 @@ class DateField extends StatelessWidget {
 
 class ItemCard extends StatelessWidget {
   final LostFoundItem item;
+  final bool isDark;
+  final Color cardColor;
+  final Color textColor;
+  final Color secondaryTextColor;
 
-  const ItemCard({super.key, required this.item});
+  const ItemCard({
+    super.key,
+    required this.item,
+    required this.isDark,
+    required this.cardColor,
+    required this.textColor,
+    required this.secondaryTextColor,
+  });
 
   String getTimeAgo(DateTime time) {
     final difference = DateTime.now().difference(time);
@@ -615,6 +776,7 @@ class ItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLost = item.status == ItemStatus.lost;
+    final theme = Theme.of(context);
 
     return GestureDetector(
       onTap: () {
@@ -626,9 +788,14 @@ class ItemCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          color: Colors.white,
+          color: cardColor,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10),
+            BoxShadow(
+              color: isDark
+                  ? Colors.transparent
+                  : Colors.black.withOpacity(.05),
+              blurRadius: 10,
+            ),
           ],
         ),
         child: Column(
@@ -650,20 +817,24 @@ class ItemCard extends StatelessWidget {
                       return Container(
                         height: 120,
                         width: double.infinity,
-                        color: Colors.grey[300],
+                        color: isDark ? Colors.grey[800] : Colors.grey[300],
                         child: Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 Icons.image_not_supported,
-                                color: Colors.grey[600],
+                                color: isDark
+                                    ? Colors.grey[600]
+                                    : Colors.grey[600],
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 'No Image',
                                 style: TextStyle(
-                                  color: Colors.grey[600],
+                                  color: isDark
+                                      ? Colors.grey[500]
+                                      : Colors.grey[600],
                                   fontSize: 10,
                                 ),
                               ),
@@ -685,7 +856,7 @@ class ItemCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isLost
                           ? const Color.fromARGB(255, 255, 0, 0)
-                          : const Color(0xFF1E88E5),
+                          : theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -708,9 +879,10 @@ class ItemCard extends StatelessWidget {
                 children: [
                   Text(
                     item.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
+                      color: textColor,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -718,18 +890,18 @@ class ItemCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.location_on_outlined,
                         size: 14,
-                        color: Colors.grey,
+                        color: secondaryTextColor,
                       ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           item.location,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey,
+                            color: secondaryTextColor,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -740,9 +912,9 @@ class ItemCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     getTimeAgo(item.timestamp),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF1E88E5),
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                 ],
