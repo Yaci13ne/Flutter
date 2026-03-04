@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:twedrli/Lists/list.dart';
+import 'package:twedrli/Lists/list.dart'; // ← model now lives here
 
 void main() {
   runApp(const TwedrliApp());
@@ -13,7 +13,7 @@ class TwedrliApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-     debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'SF Pro Display',
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
@@ -55,77 +55,6 @@ class TwedrliApp extends StatelessWidget {
       home: const HomeScreen(),
     );
   }
-}
-
-// ─────────────────────────────────────────────
-// DATA MODEL
-// ─────────────────────────────────────────────
-
-enum ItemStatus { lost, found, claimed }
-
-enum SortOption { newest, oldest, alphabetAZ, alphabetZA }
-
-extension SortOptionExtension on SortOption {
-  String get label {
-    switch (this) {
-      case SortOption.newest:
-        return 'Newest First';
-      case SortOption.oldest:
-        return 'Oldest First';
-      case SortOption.alphabetAZ:
-        return 'A to Z';
-      case SortOption.alphabetZA:
-        return 'Z to A';
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case SortOption.newest:
-        return Icons.arrow_downward;
-      case SortOption.oldest:
-        return Icons.arrow_upward;
-      case SortOption.alphabetAZ:
-        return Icons.sort_by_alpha;
-      case SortOption.alphabetZA:
-        return Icons.sort_by_alpha;
-    }
-  }
-}
-
-class LostFoundItem {
-  final String id;
-  final String title;
-  final String location;
-  final DateTime timestamp;
-  final ItemStatus status;
-  final String imagePath;
-  final String description;
-  final String contactInfo;
-  final String color;
-  final String category;
-
-  String get timeAgo {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
-    if (difference.inDays > 0) return '${difference.inDays}d ago';
-    if (difference.inHours > 0) return '${difference.inHours}h ago';
-    if (difference.inMinutes > 0) return '${difference.inMinutes}m ago';
-    return 'Just now';
-  }
-
-  const LostFoundItem({
-    required this.id,
-    required this.title,
-    required this.location,
-    required this.timestamp,
-    required this.status,
-    required this.imagePath,
-    this.description = '',
-    this.contactInfo = '',
-    this.color = '',
-    required this.category,
-  });
 }
 
 // ─────────────────────────────────────────────
@@ -993,7 +922,6 @@ class _ItemCardState extends State<_ItemCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Image area with badges ──
             Stack(
               children: [
                 ClipRRect(
@@ -1005,8 +933,6 @@ class _ItemCardState extends State<_ItemCard> {
                     isClaimed: _isClaimed,
                   ),
                 ),
-
-                // Status Badge
                 Positioned(
                   top: 8,
                   left: 8,
@@ -1044,8 +970,6 @@ class _ItemCardState extends State<_ItemCard> {
                     ),
                   ),
                 ),
-
-                // Time indicator
                 Positioned(
                   top: 8,
                   right: 8,
@@ -1090,8 +1014,6 @@ class _ItemCardState extends State<_ItemCard> {
                     ),
                   ),
                 ),
-
-                // Save button
                 if (!_isClaimed)
                   Positioned(
                     bottom: 8,
@@ -1154,15 +1076,12 @@ class _ItemCardState extends State<_ItemCard> {
                   ),
               ],
             ),
-
-            // ── Content ──
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title + ID badge
                     Row(
                       children: [
                         Expanded(
@@ -1215,8 +1134,6 @@ class _ItemCardState extends State<_ItemCard> {
                       ],
                     ),
                     const SizedBox(height: 4),
-
-                    // Location
                     Row(
                       children: [
                         Icon(
@@ -1242,8 +1159,6 @@ class _ItemCardState extends State<_ItemCard> {
                         ),
                       ],
                     ),
-
-                    // Description (only if present and not claimed)
                     if (widget.item.description.isNotEmpty && !_isClaimed) ...[
                       const SizedBox(height: 4),
                       Row(
@@ -1272,10 +1187,7 @@ class _ItemCardState extends State<_ItemCard> {
                         ],
                       ),
                     ],
-
                     const Spacer(),
-
-                    // Action button
                     if (!_isClaimed) ...[
                       Row(
                         children: [

@@ -1,4 +1,4 @@
-// app_drawer.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:twedrli/Pages/Settings.dart';
 import 'package:twedrli/theme/theme_modifier.dart';
@@ -15,34 +15,62 @@ class AppDrawer extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    size: 40,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Alex Rivers',
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
-                Text(
-                  '@arivers_24',
-                  style: TextStyle(color: Colors.white.withOpacity(0.8)),
-                ),
-              ],
-            ),
+          // ── Reactive DrawerHeader ──────────────────────────────────────────
+          ValueListenableBuilder<String>(
+            valueListenable: displayNameNotifier,
+            builder: (context, displayName, _) {
+              return ValueListenableBuilder<File?>(
+                valueListenable: profileImageNotifier,
+                builder: (context, profileImage, _) {
+                  return DrawerHeader(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: Colors.white,
+                          backgroundImage: profileImage != null
+                              ? FileImage(profileImage)
+                              : null,
+                          child: profileImage == null
+                              ? Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: Theme.of(context).colorScheme.primary,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          displayName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                  ValueListenableBuilder<String>(
+                          valueListenable: usernameNotifier,
+                          builder: (context, username, _) {
+                            return Text(
+                              username,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
+          // ──────────────────────────────────────────────────────────────────
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Profile'),
@@ -61,7 +89,7 @@ class AppDrawer extends StatelessWidget {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) =>  SettingsScreen()),
+                MaterialPageRoute(builder: (context) => SettingsScreen()),
               );
             },
           ),

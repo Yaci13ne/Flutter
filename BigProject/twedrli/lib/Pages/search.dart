@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:twedrli/Lists/list.dart';
-import 'package:twedrli/Pages/home.dart';
 import 'package:twedrli/Pages/item_detail_screen.dart';
 
 class TwedrliSearchScreen extends StatefulWidget {
@@ -17,17 +16,41 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
   String? selectedZone;
   String? selectedType;
 
+  // ─── Fuzzy location match ─────────────────────────────────────────────────
+  /// Returns true if the item's location "contains" the selected zone or
+  /// vice-versa, case-insensitively and accent-insensitively.
+  bool _locationMatches(String itemLocation, String zone) {
+    final a = _normalize(itemLocation);
+    final b = _normalize(zone);
+    return a.contains(b) || b.contains(a);
+  }
+
+  /// Strip accents and lowercase so "Faculté" == "faculte".
+  String _normalize(String s) {
+    const accents = 'àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿœ';
+    const replaced = 'aaaaaaaceeeeiiiidnoooooouuuuybyoe';
+    var result = s.toLowerCase();
+    for (var i = 0; i < accents.length; i++) {
+      result = result.replaceAll(accents[i], replaced[i]);
+    }
+    return result;
+  }
+
   List<LostFoundItem> get filteredItems {
     return allItemsNotifier.value.where((item) {
       final matchesSearch =
           searchQuery.isEmpty ||
-          item.title.toLowerCase().contains(searchQuery.toLowerCase());
+          item.title.toLowerCase().contains(searchQuery.toLowerCase()) ||
+          item.description.toLowerCase().contains(searchQuery.toLowerCase());
 
       final matchesType =
           selectedType == null ||
           item.category.toLowerCase() == selectedType!.toLowerCase();
 
-      final matchesZone = selectedZone == null || item.location == selectedZone;
+      // ← fuzzy match instead of exact equality
+      final matchesZone =
+          selectedZone == null ||
+          _locationMatches(item.location, selectedZone!);
 
       final matchesColor =
           isAllColorsSelected ||
@@ -106,9 +129,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                       Expanded(
                         child: TextField(
                           onChanged: (value) {
-                            setState(() {
-                              searchQuery = value;
-                            });
+                            setState(() => searchQuery = value);
                           },
                           style: TextStyle(color: textColor),
                           decoration: InputDecoration(
@@ -242,7 +263,6 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                     color: textColor,
                   ),
                 ),
-
                 const SizedBox(height: 12),
 
                 Row(
@@ -263,9 +283,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
                 /// APPLY BUTTON
                 GestureDetector(
-                  onTap: () {
-                    setState(() {});
-                  },
+                  onTap: () => setState(() {}),
                   child: Container(
                     width: double.infinity,
                     height: 55,
@@ -339,6 +357,8 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
     );
   }
 
+  // ─── Object Type Field ────────────────────────────────────────────────────
+
   Widget buildObjectTypeField(
     BuildContext context,
     bool isDark,
@@ -382,7 +402,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        TextEditingController controller = TextEditingController();
+        final controller = TextEditingController();
         List<String> filteredList = List.from(objectTypes);
 
         return StatefulBuilder(
@@ -457,9 +477,9 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                               ),
                             ),
                             onTap: () {
-                              setState(() {
-                                selectedType = filteredList[index];
-                              });
+                              setState(
+                                () => selectedType = filteredList[index],
+                              );
                               Navigator.pop(context);
                             },
                           );
@@ -475,6 +495,8 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
       },
     );
   }
+
+  // ─── Campus Zone Field ────────────────────────────────────────────────────
 
   Widget buildCampusZoneField(
     BuildContext context,
@@ -519,8 +541,8 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        TextEditingController controller = TextEditingController();
-        List<String> filteredList = List.from(campusZones);
+        final controller = TextEditingController();
+        List<String> filteredList = List.from(campusPlaces);
 
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -535,11 +557,11 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                       controller: controller,
                       onChanged: (value) {
                         setModalState(() {
-                          filteredList = campusZones
+                          filteredList = campusPlaces
                               .where(
-                                (zone) => zone.toLowerCase().contains(
-                                  value.toLowerCase(),
-                                ),
+                                (zone) => _normalize(
+                                  zone,
+                                ).contains(_normalize(value)),
                               )
                               .toList();
                         });
@@ -583,6 +605,11 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                       itemCount: filteredList.length,
                       itemBuilder: (context, index) {
                         return ListTile(
+                          leading: Icon(
+                            Icons.location_on_outlined,
+                            color: isDark ? Colors.grey[500] : Colors.grey,
+                            size: 18,
+                          ),
                           title: Text(
                             filteredList[index],
                             style: TextStyle(
@@ -590,9 +617,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                             ),
                           ),
                           onTap: () {
-                            setState(() {
-                              selectedZone = filteredList[index];
-                            });
+                            setState(() => selectedZone = filteredList[index]);
                             Navigator.pop(context);
                           },
                         );
@@ -607,6 +632,8 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
       },
     );
   }
+
+  // ─── Color Widgets ────────────────────────────────────────────────────────
 
   Widget buildAllColorsDot() {
     return GestureDetector(
@@ -663,7 +690,6 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
   Widget buildColorDot(Color color, bool isDark) {
     final isSelected = selectedColor == color;
-
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -710,6 +736,8 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
   }
 }
 
+// ─── Date Field ───────────────────────────────────────────────────────────────
+
 class DateField extends StatelessWidget {
   final bool isDark;
   final Color borderColor;
@@ -745,6 +773,8 @@ class DateField extends StatelessWidget {
   }
 }
 
+// ─── Item Card ────────────────────────────────────────────────────────────────
+
 class ItemCard extends StatelessWidget {
   final LostFoundItem item;
   final bool isDark;
@@ -763,14 +793,9 @@ class ItemCard extends StatelessWidget {
 
   String getTimeAgo(DateTime time) {
     final difference = DateTime.now().difference(time);
-
-    if (difference.inMinutes < 60) {
-      return "${difference.inMinutes} min ago";
-    } else if (difference.inHours < 24) {
-      return "${difference.inHours} hours ago";
-    } else {
-      return "${difference.inDays} days ago";
-    }
+    if (difference.inMinutes < 60) return "${difference.inMinutes} min ago";
+    if (difference.inHours < 24) return "${difference.inHours} hours ago";
+    return "${difference.inDays} days ago";
   }
 
   @override
@@ -801,7 +826,6 @@ class ItemCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// IMAGE
             Stack(
               children: [
                 ClipRRect(
@@ -855,7 +879,7 @@ class ItemCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: isLost
-                          ? const Color.fromARGB(255, 255, 0, 0)
+                          ? const Color(0xFFE53935)
                           : theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -871,7 +895,6 @@ class ItemCard extends StatelessWidget {
                 ),
               ],
             ),
-
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(

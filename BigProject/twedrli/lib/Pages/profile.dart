@@ -46,6 +46,21 @@ class MyApp extends StatelessWidget {
 /// Both ProfileScreen and AppDrawer observe this to stay in sync.
 final ValueNotifier<File?> profileImageNotifier = ValueNotifier<File?>(null);
 
+// ─── Shared Username Notifier ─────────────────────────────────────────────────
+
+/// A global ValueNotifier that holds the current display name.
+/// Both ProfileScreen and AppDrawer observe this to stay in sync.
+final ValueNotifier<String> displayNameNotifier = ValueNotifier<String>(
+  'Alex Rivers',
+
+
+  
+);
+
+final ValueNotifier<String> usernameNotifier = ValueNotifier<String>(
+  '@arivers_24',
+);
+
 // ─── Data Models ─────────────────────────────────────────────────────────────
 
 class BadgeData {
@@ -383,9 +398,121 @@ class _ProfileScreenState extends State<ProfileScreen> {
       imageQuality: 85,
     );
     if (file != null) {
-      // Update the global notifier — both ProfileScreen and AppDrawer will reflect the change
       profileImageNotifier.value = File(file.path);
     }
+  }
+
+  /// Shows an edit dialog for the display name.
+  Future<void> _editDisplayName() async {
+    final controller = TextEditingController(text: displayNameNotifier.value);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Edit Name',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            maxLength: 40,
+            style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurface),
+            decoration: InputDecoration(
+              hintText: 'Enter your name',
+              hintStyle: TextStyle(
+                color: isDark ? Colors.grey[500] : Colors.black38,
+              ),
+              filled: true,
+              fillColor: isDark
+                  ? const Color(0xFF2A2A2A)
+                  : const Color(0xFFF5F5F5),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFF2979FF),
+                  width: 2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              counterStyle: TextStyle(
+                color: isDark ? Colors.grey[500] : Colors.black38,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          actionsPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: TextButton.styleFrom(
+                foregroundColor: isDark ? Colors.grey[400] : Colors.black54,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newName = controller.text.trim();
+                if (newName.isNotEmpty) {
+                  displayNameNotifier.value = newName;
+                }
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2979FF),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Save',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
   }
 
   void _toggleSaved(int index) {
@@ -475,14 +602,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: theme.colorScheme.onSurface,
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Icon(
-              Icons.settings,
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
-              size: 26,
-            ),
-          ),
+
         ],
       ),
     );
@@ -544,22 +664,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildUserInfo(ThemeData theme, bool isDark) {
     return Column(
       children: [
-        Text(
-          'Alex Rivers',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: theme.colorScheme.onSurface,
+        // ── Tappable display name row ──────────────────────────────────────
+        GestureDetector(
+          onTap: _editDisplayName,
+          child: ValueListenableBuilder<String>(
+            valueListenable: displayNameNotifier,
+            builder: (context, displayName, _) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    displayName,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2979FF).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.edit_outlined,
+                      size: 14,
+                      color: Color(0xFF2979FF),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
+        // ─────────────────────────────────────────────────────────────────
         const SizedBox(height: 4),
-        Text(
-          '@arivers_24',
-          style: TextStyle(
-            fontSize: 14,
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.w500,
-          ),
+ValueListenableBuilder<String>(
+          valueListenable: usernameNotifier,
+          builder: (context, username, _) {
+            return Text(
+              username,
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w500,
+              ),
+            );
+          },
         ),
         const SizedBox(height: 4),
         Text(

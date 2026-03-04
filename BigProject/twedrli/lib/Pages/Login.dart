@@ -1,11 +1,48 @@
+import 'package:flutter/material.dart';
+import 'package:twedrli/fabtab.dart';
+import 'package:twedrli/main.dart';
+
 // ════════════════════════════════════════════════════════════════════════════════
 // LOGIN SCREEN
 // ════════════════════════════════════════════════════════════════════════════════
-import 'package:flutter/material.dart';
-import 'package:twedrli/main.dart';
-
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _signIn() {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (username.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your username and password.'),
+        ),
+      );
+      return;
+    }
+
+    // TODO: replace with your actual auth logic
+    // On success → go to home and clear the back stack
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const FabTabs()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,9 +50,8 @@ class LoginScreen extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background image
           Image.asset('assets/bg.png', fit: BoxFit.cover),
-          // Content
+
           Column(
             children: [
               // ── Blue top section ──────────────────────────────────────
@@ -49,7 +85,8 @@ class LoginScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              // ── Form section (no white card, transparent) ─────────────
+
+              // ── Form section ──────────────────────────────────────────
               Expanded(
                 flex: 7,
                 child: SingleChildScrollView(
@@ -57,27 +94,44 @@ class LoginScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const TwedrliInput(
+                      TwedrliInput(
                         hint: 'Username',
                         icon: Icons.person_outline_rounded,
+                        controller: _usernameController,
                       ),
                       const SizedBox(height: 14),
-                      const TwedrliInput(
+                      TwedrliInput(
                         hint: 'Password',
                         icon: Icons.lock_outline_rounded,
                         obscure: true,
+                        controller: _passwordController,
                       ),
+                      const SizedBox(height: 8),
+
+                      // Forgot password
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {
+                            // TODO: navigate to forgot password screen
+                          },
+                          child: const Text(
+                            'Forgot Password?',
+                            style: TextStyle(color: kBlue, fontSize: 13),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+                      PrimaryButton(label: 'Sign In', onTap: _signIn),
                       const SizedBox(height: 28),
-                      PrimaryButton(label: 'Sign In', onTap: () {}),
-                      const SizedBox(height: 28),
-                      const OrDivider(),
+                      const OrDivider(text: 'Or sign in with'),
                       const SizedBox(height: 24),
-                      const GoogleButton(),
+                      const GoogleButton(label: 'Sign in with Google'),
                       const SizedBox(height: 40),
 
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-
                         children: [
                           const Text(
                             "Don't have an account? ",
@@ -124,6 +178,7 @@ class LoginScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+
                       const Center(
                         child: Text(
                           '© 2026 TWEDRLI CAMPUS INC.',
@@ -142,209 +197,6 @@ class LoginScreen extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-
-class GoogleButton extends StatelessWidget {
-  const GoogleButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 54,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(27),
-        border: Border.all(color: kBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.asset('assets/google.png', width: 22, height: 22),
-          const SizedBox(width: 10),
-          const Text(
-            'Sign up with Google',
-            style: TextStyle(
-              fontSize: 15,
-              color: Color(0xFF444444),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Divider with text ────────────────────────────────────────────────────────
-class OrDivider extends StatelessWidget {
-  const OrDivider({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Divider(color: kBorder, thickness: 1)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Or sign in with',
-            style: TextStyle(color: kGrey, fontSize: 13),
-          ),
-        ),
-        Expanded(child: Divider(color: kBorder, thickness: 1)),
-      ],
-    );
-  }
-}
-
-// ─── Twedrli Logo ─────────────────────────────────────────────────────────────
-class TwedrliLogo extends StatelessWidget {
-  final double size;
-  final bool showName;
-  const TwedrliLogo({super.key, this.size = 64, this.showName = true});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: size,
-          height: size,
-
-          child: Center(
-            child: Image.asset(
-              'assets/logo.png',
-              width: size * 4,
-              height: size * 4,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-        if (showName) ...[const SizedBox(height: 8)],
-      ],
-    );
-  }
-}
-
-class TwedrliLogoColored extends StatelessWidget {
-  final double size;
-  const TwedrliLogoColored({super.key, this.size = 56});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          child: Center(
-            child: Image.asset(
-              'assets/logo.png',
-              width: size * 1.5,
-              height: size * 1.5,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-      
-      ],
-    );
-  }
-}
-
-// ─── Shared Input Field ───────────────────────────────────────────────────────
-class TwedrliInput extends StatelessWidget {
-  final String hint;
-  final IconData icon;
-  final bool obscure;
-  final TextEditingController? controller;
-  final TextInputType keyboardType;
-
-  const TwedrliInput({
-    super.key,
-    required this.hint,
-    required this.icon,
-    this.obscure = false,
-    this.controller,
-    this.keyboardType = TextInputType.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kInputBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kBorder),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        style: const TextStyle(fontSize: 15, color: Color(0xFF1A2B3C)),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: kGrey, fontSize: 15),
-          prefixIcon: Icon(icon, color: kGrey, size: 20),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Shared Primary Button ────────────────────────────────────────────────────
-class PrimaryButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onTap;
-  const PrimaryButton({super.key, required this.label, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: 54,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1E9BF0), Color(0xFF1578C2)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(27),
-          boxShadow: [
-            BoxShadow(
-              color: const Color.fromRGBO(30, 155, 240, 1).withOpacity(0.35),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
-          ),
-        ),
       ),
     );
   }

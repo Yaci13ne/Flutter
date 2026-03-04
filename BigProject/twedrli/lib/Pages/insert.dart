@@ -3,7 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:twedrli/Lists/list.dart';
-import 'package:twedrli/Pages/home.dart';
+import 'package:twedrli/map.dart' hide LostFoundItem; // ← import your map file
 
 void main() {
   runApp(const TwedrliApp());
@@ -68,7 +68,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   File? _selectedImage;
   bool _isLost = true;
   int _selectedColorIndex = 0;
-  String _selectedZone = 'Faculté des Sciences';
+
+  /// Replaces the old dropdown — filled by the map picker
+  String _selectedLocation = '';
+  String _selectedCategory = 'Phone'; // default to first option
+
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
@@ -79,6 +83,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     _descController.dispose();
     _dateController.dispose();
     super.dispose();
+  }
+
+  // ─── Open map and wait for place name ──────────────────────────────────────
+
+  Future<void> _pickLocationFromMap() async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const MapScreen(returnResult: true)),
+    );
+    if (result != null && result.isNotEmpty) {
+      setState(() => _selectedLocation = result);
+    }
   }
 
   @override
@@ -121,9 +136,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildLabel('Campus Zone', isDark),
+                              _buildLabel('Location', isDark),
                               const SizedBox(height: 8),
-                              _buildDropdown(isDark),
+                              // ── Map Picker Field ──────────────────────────
+                              _buildLocationField(isDark),
                             ],
                           ),
                         ),
@@ -144,6 +160,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     _buildLabel('Item Color', isDark),
                     const SizedBox(height: 12),
                     _buildColorSelector(isDark),
+                    const SizedBox(height: 24),
+                    _buildLabel('Category', isDark),
+                    const SizedBox(height: 8),
+                    _buildCategoryDropdown(isDark),
                     const SizedBox(height: 24),
                     _buildLabel('Description', isDark),
                     const SizedBox(height: 8),
@@ -272,6 +292,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   // ─── Photo Upload ──────────────────────────────────────────────────────────
+
   Widget _buildPhotoUpload(bool isDark) {
     return GestureDetector(
       onTap: () async {
@@ -507,9 +528,68 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  // ─── Dropdown ──────────────────────────────────────────────────────────────
+  // ─── Location Field (replaces dropdown) ───────────────────────────────────
 
-  Widget _buildDropdown(bool isDark) {
+  Widget _buildLocationField(bool isDark) {
+    final hasLocation = _selectedLocation.isNotEmpty;
+    return GestureDetector(
+      onTap: _pickLocationFromMap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.grey[900] : const Color(0xFFF8FBFD),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasLocation
+                ? (isDark ? Colors.blue[400]! : const Color(0xFF29B6F6))
+                : (isDark ? Colors.grey[800]! : const Color(0xFFDDE8EE)),
+            width: hasLocation ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              hasLocation
+                  ? Icons.location_pin
+                  : Icons.add_location_alt_outlined,
+              color: hasLocation
+                  ? (isDark ? Colors.blue[400] : const Color(0xFF29B6F6))
+                  : (isDark ? Colors.grey[600] : const Color(0xFFB0C4CE)),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                hasLocation ? _selectedLocation : 'Pin on map…',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: hasLocation
+                      ? (isDark ? Colors.white70 : const Color(0xFF1A1A2E))
+                      : (isDark ? Colors.grey[600] : const Color(0xFFB0C4CE)),
+                  fontWeight: hasLocation ? FontWeight.w600 : FontWeight.w400,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (hasLocation)
+              GestureDetector(
+                onTap: () => setState(() => _selectedLocation = ''),
+                child: Icon(
+                  Icons.close,
+                  size: 16,
+                  color: isDark ? Colors.grey[500] : const Color(0xFFB0C4CE),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Category Dropdown ────────────────────────────────────────────────────────
+
+  Widget _buildCategoryDropdown(bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       decoration: BoxDecoration(
@@ -522,7 +602,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedZone,
+          value: _selectedCategory,
           isExpanded: true,
           icon: Icon(
             Icons.keyboard_arrow_down,
@@ -534,11 +614,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             color: isDark ? Colors.white70 : const Color(0xFF1A1A2E),
           ),
           dropdownColor: isDark ? Colors.grey[900] : Colors.white,
-          items: campusZones
-              .map((z) => DropdownMenuItem(value: z, child: Text(z)))
+          items: objectTypes
+              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
               .toList(),
           onChanged: (val) {
-            if (val != null) setState(() => _selectedZone = val);
+            if (val != null) setState(() => _selectedCategory = val);
           },
         ),
       ),
@@ -772,7 +852,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         final newItem = LostFoundItem(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           title: _titleController.text,
-          location: _selectedZone,
+          location: _selectedLocation.isNotEmpty
+              ? _selectedLocation
+              : 'Unknown',
           timestamp: _dateController.text.isNotEmpty
               ? _parseDate(_dateController.text)
               : DateTime.now(),
@@ -781,13 +863,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           description: _descController.text,
           contactInfo: '',
           color: itemColors[_selectedColorIndex].label,
-          category: '',
+          category: _selectedCategory,
         );
 
-        allItemsNotifier.value = [
-          ...allItemsNotifier.value,
-          newItem,
-        ]; // triggers rebuild
+        allItemsNotifier.value = [...allItemsNotifier.value, newItem];
         Navigator.of(context).maybePop();
       },
       child: Container(
@@ -834,9 +913,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   DateTime _parseDate(String text) {
     final parts = text.split('/');
     return DateTime(
-      int.parse(parts[2]), // year
-      int.parse(parts[0]), // month
-      int.parse(parts[1]), // day
+      int.parse(parts[2]),
+      int.parse(parts[0]),
+      int.parse(parts[1]),
     );
   }
 }

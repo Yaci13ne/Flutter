@@ -12,6 +12,11 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   image_picker: ^1.2.1
+  latlong2: ^0.9.1
+  shared_preferences: ^2.5.4
+  intl: ^0.20.2
+  flutter_map: ^8.2.2
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -19,11 +24,10 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.13.1
 
-# 👇 MOVE THIS HERE (OUTSIDE flutter:)
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/icon.png"
+  image_path: "assets/logo2.png"
 
 flutter:
   uses-material-design: true
@@ -45,3 +49,5 @@ flutter:
     - assets/umbrella.png
     - assets/bg.png
     - assets/google.png
+    - assets/splash.png
+    - assets/logo2.png

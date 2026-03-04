@@ -1,240 +1,508 @@
-
-
-  // ─── Section ─────────────────────────────────────────────────────────────
-
-  import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:twedrli/Pages/activity.dart';
+import 'package:flutter/services.dart';
 
-Widget _buildSection(String title, List<ActivityItem> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF8A8FA8),
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-        Container(
-          color: Colors.white,
-          child: Column(
-            children: items.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return Column(
-                children: [
-                  _buildActivityTile(item),
-                  if (index < items.length - 1)
-                    const Divider(
-                      height: 1,
-                      thickness: 0.5,
-                      indent: 76,
-                      color: Color(0xFFECEDF2),
-                    ),
-                ],
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
+// ═══════════════════════════════════════════════════════════════════════════
+// MODEL
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _Msg {
+  final String text;
+  final bool isMe;
+  final DateTime time;
+
+  _Msg({required this.text, required this.isMe, required this.time});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// IN-MEMORY STORE  (one list per conversation, keyed by name)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _Store extends ChangeNotifier {
+  static final _Store _i = _Store._();
+  factory _Store() => _i;
+  _Store._();
+
+  final Map<String, List<_Msg>> _convos = {};
+
+  List<_Msg> msgs(String name) => _convos[name] ?? [];
+
+  void send(String name, String text) {
+    _convos.putIfAbsent(name, () => []);
+    _convos[name]!.add(_Msg(text: text, isMe: true, time: DateTime.now()));
+    notifyListeners();
   }
 
-  // ─── Activity Tile ───────────────────────────────────────────────────────
-
-  Widget _buildActivityTile(ActivityItem item) {
-    return Container(
-      color: item.isUnread ? const Color(0xFFF0FFFE) : Colors.white,
-      child: Stack(
-        children: [
-          if (item.isUnread)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(width: 3, color: const Color(0xFF00BFAE)),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildAvatar(item),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          _buildTypeIcon(item.type),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              item.title,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: item.isUnread
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
-                                color: const Color(0xFF1A1A2E),
-                                letterSpacing: -0.1,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            item.time,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFFB0B4C8),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 20),
-                        child: Text(
-                          item.subtitle,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF7B8099),
-                            height: 1.3,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  String lastMsg(String name) {
+    final list = _convos[name];
+    if (list == null || list.isEmpty) return '';
+    return list.last.text;
   }
+}
 
-  Widget _buildAvatar(ActivityItem item) {
-    final config = _avatarConfig(item.type);
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        color: config['bgColor'] as Color,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: (config['bgColor'] as Color).withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: item.type == ActivityType.message
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: _PersonPlaceholder(),
-            )
-          : item.type == ActivityType.system
-          ? Icon(
-              Icons.phone_android_rounded,
-              color: Colors.white.withOpacity(0.8),
-              size: 26,
-            )
-          : Center(
-              child: Icon(
-                config['icon'] as IconData,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-    );
-  }
+// ═══════════════════════════════════════════════════════════════════════════
+// CHAT LIST PAGE  (your existing ChatPage — drop-in replacement)
+// ═══════════════════════════════════════════════════════════════════════════
 
-  Map<String, dynamic> _avatarConfig(ActivityType type) {
-    switch (type) {
-      case ActivityType.approved:
-        return {'bgColor': const Color(0xFF2D3561), 'icon': Icons.umbrella};
-      case ActivityType.match:
-        return {'bgColor': const Color(0xFFE8840A), 'icon': Icons.vpn_key};
-      case ActivityType.message:
-        return {'bgColor': const Color(0xFFEE8B6E), 'icon': Icons.person};
-      case ActivityType.recovered:
-        return {'bgColor': const Color(0xFF6B5B3E), 'icon': Icons.headphones};
-      case ActivityType.security:
-        return {
-          'bgColor': const Color(0xFFB0B4C8),
-          'icon': Icons.person_outline,
-        };
-      case ActivityType.system:
-        return {
-          'bgColor': const Color(0xFFD8DCE8),
-          'icon': Icons.phone_android,
-        };
+class ChatPage extends StatefulWidget {
+  const ChatPage({super.key});
+
+  @override
+  State<ChatPage> createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  final _store = _Store();
+
+  // Seed conversations with initial messages
+  final List<Map<String, dynamic>> _chats = [
+    {
+      'name': 'Alex',
+      'msg': 'Hey! I think I found your water bottle 👋',
+      'time': '3h ago',
+      'unread': true,
+      'seed': 'Hey! I think I found your water bottle 👋',
+    },
+    {
+      'name': 'Jordan',
+      'msg': 'Is this the umbrella you lost?',
+      'time': '1d ago',
+      'unread': false,
+      'seed': 'Is this the umbrella you lost?',
+    },
+    {
+      'name': 'Campus Security',
+      'msg': 'Please pick up your ID at the front desk.',
+      'time': '1d ago',
+      'unread': false,
+      'seed': 'Please pick up your ID at the front desk.',
+    },
+    {
+      'name': 'Maya',
+      'msg': 'Found your AirPods near the library!',
+      'time': '2d ago',
+      'unread': false,
+      'seed': 'Found your AirPods near the library!',
+    },
+  ];
+
+  bool _seeded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(() => setState(() {}));
+    // Seed initial messages once
+    if (!_seeded) {
+      _seeded = true;
+      for (final c in _chats) {
+        final name = c['name'] as String;
+        if (_store.msgs(name).isEmpty) {
+          _store._convos[name] = [
+            _Msg(text: c['seed'] as String, isMe: false, time: DateTime.now()),
+          ];
+        }
+      }
     }
   }
 
-  Widget _buildTypeIcon(ActivityType type) {
-    IconData icon;
-    Color color;
-    switch (type) {
-      case ActivityType.approved:
-      case ActivityType.recovered:
-        icon = Icons.check_circle;
-        color = const Color(0xFF00BFAE);
-        break;
-      case ActivityType.match:
-        icon = Icons.search;
-        color = const Color(0xFF5A7AFF);
-        break;
-      case ActivityType.message:
-      case ActivityType.security:
-        icon = Icons.chat_bubble;
-        color = const Color(0xFF9B59B6);
-        break;
-      case ActivityType.system:
-        return const SizedBox.shrink();
-    }
-    return Icon(icon, size: 15, color: color);
-  }
-
-// ─── Person Placeholder ───────────────────────────────────────────────────────
-
-class _PersonPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFEE8B6E),
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          Positioned(
-            bottom: -4,
+    return _PageShell(
+      title: 'Chat',
+      accentColor: const Color(0xFF9B59B6),
+      icon: Icons.chat_bubble_rounded,
+      body: ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _chats.length,
+        separatorBuilder: (_, __) => const Divider(
+          height: 1,
+          thickness: 0.5,
+          indent: 76,
+          color: Color(0xFFECEDF2),
+        ),
+        itemBuilder: (context, index) {
+          final chat = _chats[index];
+          final name = chat['name'] as String;
+          final isUnread = chat['unread'] as bool;
+          // Show latest message if user has sent one
+          final displayMsg = _store.lastMsg(name).isNotEmpty
+              ? _store.lastMsg(name)
+              : chat['msg'] as String;
+
+          return GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => _ConversationPage(name: name)),
+            ),
             child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                shape: BoxShape.circle,
+              color: isUnread ? const Color(0xFFFAF5FF) : Colors.white,
+              child: Stack(
+                children: [
+                  if (isUnread)
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 3,
+                        color: const Color(0xFF9B59B6),
+                      ),
+                    ),
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    leading: CircleAvatar(
+                      radius: 26,
+                      backgroundColor: const Color(
+                        0xFF9B59B6,
+                      ).withOpacity(0.15),
+                      child: Text(
+                        name[0],
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF9B59B6),
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: isUnread
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        color: const Color(0xFF1A1A2E),
+                      ),
+                    ),
+                    subtitle: Text(
+                      displayMsg,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isUnread
+                            ? const Color(0xFF1A1A2E)
+                            : const Color(0xFF7B8099),
+                        fontWeight: isUnread
+                            ? FontWeight.w500
+                            : FontWeight.w400,
+                      ),
+                    ),
+                    trailing: Text(
+                      chat['time'] as String,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB0B4C8),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          const Positioned(
-            top: 8,
-            child: CircleAvatar(
-              radius: 10,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 14, color: Color(0xFFEE8B6E)),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONVERSATION PAGE
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ConversationPage extends StatefulWidget {
+  final String name;
+  const _ConversationPage({required this.name});
+
+  @override
+  State<_ConversationPage> createState() => _ConversationPageState();
+}
+
+class _ConversationPageState extends State<_ConversationPage> {
+  final _store = _Store();
+  final _controller = TextEditingController();
+  final _scroll = ScrollController();
+  bool _isComposing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(_onUpdate);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToBottom(animate: false),
+    );
+  }
+
+  @override
+  void dispose() {
+    _store.removeListener(_onUpdate);
+    _controller.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onUpdate() {
+    if (mounted) {
+      setState(() {});
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom({bool animate = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        final max = _scroll.position.maxScrollExtent;
+        animate
+            ? _scroll.animateTo(
+                max,
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOut,
+              )
+            : _scroll.jumpTo(max);
+      }
+    });
+  }
+
+  void _send() {
+    final text = _controller.text;
+    if (text.trim().isEmpty) return;
+    _controller.clear();
+    setState(() => _isComposing = false);
+    _store.send(widget.name, text);
+    HapticFeedback.lightImpact();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final msgs = _store.msgs(widget.name);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F6F8),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Top bar ──
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                      color: Color(0xFF1A1A2E),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: const Color(0xFF9B59B6).withOpacity(0.15),
+                    child: Text(
+                      widget.name[0],
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF9B59B6),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A1A2E),
+                          ),
+                        ),
+                        const Text(
+                          'Active now',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF9B59B6),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(height: 2, color: const Color(0xFF9B59B6)),
+
+            // ── Messages ──
+            Expanded(
+              child: ListView.builder(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                itemCount: msgs.length,
+                itemBuilder: (context, i) {
+                  final msg = msgs[i];
+                  final next = i < msgs.length - 1 ? msgs[i + 1] : null;
+                  final lastInGroup = next == null || next.isMe != msg.isMe;
+
+                  return _buildBubble(msg, lastInGroup);
+                },
+              ),
+            ),
+
+            // ── Input ──
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(maxHeight: 120),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF4F6F8),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: TextField(
+                        controller: _controller,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                        textCapitalization: TextCapitalization.sentences,
+                        onChanged: (v) =>
+                            setState(() => _isComposing = v.trim().isNotEmpty),
+                        onSubmitted: (_) => _send(),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: Color(0xFF1A1A2E),
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Type a message...',
+                          hintStyle: TextStyle(color: Color(0xFFB0B4C8)),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _isComposing ? _send : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: _isComposing
+                            ? const Color(0xFF9B59B6)
+                            : const Color(0xFFE0E3EF),
+                        shape: BoxShape.circle,
+                        boxShadow: _isComposing
+                            ? [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFF9B59B6,
+                                  ).withOpacity(0.4),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: Icon(
+                        Icons.send_rounded,
+                        size: 20,
+                        color: _isComposing
+                            ? Colors.white
+                            : const Color(0xFFB0B4C8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBubble(_Msg msg, bool lastInGroup) {
+    return Padding(
+      padding: EdgeInsets.only(
+        top: 2,
+        bottom: lastInGroup ? 8 : 2,
+        left: msg.isMe ? 56 : 0,
+        right: msg.isMe ? 0 : 56,
+      ),
+      child: Row(
+        mainAxisAlignment: msg.isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Other person's avatar
+          if (!msg.isMe)
+            SizedBox(
+              width: 32,
+              child: lastInGroup
+                  ? CircleAvatar(
+                      radius: 14,
+                      backgroundColor: const Color(
+                        0xFF9B59B6,
+                      ).withOpacity(0.15),
+                      child: Text(
+                        widget.name[0],
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF9B59B6),
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+          if (!msg.isMe) const SizedBox(width: 6),
+
+          // Bubble
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: msg.isMe ? const Color(0xFF9B59B6) : Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: Radius.circular(msg.isMe ? 18 : 4),
+                  bottomRight: Radius.circular(msg.isMe ? 4 : 18),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: msg.isMe
+                        ? const Color(0xFF9B59B6).withOpacity(0.25)
+                        : Colors.black.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                msg.text,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: msg.isMe ? Colors.white : const Color(0xFF1A1A2E),
+                  height: 1.35,
+                ),
+              ),
             ),
           ),
         ],
@@ -243,9 +511,9 @@ class _PersonPlaceholder extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ─── Destination Pages ────────────────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE SHELL  (your existing one — unchanged)
+// ═══════════════════════════════════════════════════════════════════════════
 
 class _PageShell extends StatelessWidget {
   final String title;
@@ -299,121 +567,6 @@ class _PageShell extends StatelessWidget {
             Expanded(child: body),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ─── Chat Page ───────────────────────────────────────────────────────────────
-
-class ChatPage extends StatelessWidget {
-  const ChatPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final chats = [
-      {
-        'name': 'Alex',
-        'msg': 'Hey! I think I found your water bottle 👋',
-        'time': '3h ago',
-        'unread': true,
-      },
-      {
-        'name': 'Jordan',
-        'msg': 'Is this the umbrella you lost?',
-        'time': '1d ago',
-        'unread': false,
-      },
-      {
-        'name': 'Campus Security',
-        'msg': 'Please pick up your ID at the front desk.',
-        'time': '1d ago',
-        'unread': false,
-      },
-      {
-        'name': 'Maya',
-        'msg': 'Found your AirPods near the library!',
-        'time': '2d ago',
-        'unread': false,
-      },
-    ];
-
-    return _PageShell(
-      title: 'Chat',
-      accentColor: const Color(0xFF9B59B6),
-      icon: Icons.chat_bubble_rounded,
-      body: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: chats.length,
-        separatorBuilder: (_, __) => const Divider(
-          height: 1,
-          thickness: 0.5,
-          indent: 76,
-          color: Color(0xFFECEDF2),
-        ),
-        itemBuilder: (context, index) {
-          final chat = chats[index];
-          final isUnread = chat['unread'] as bool;
-          return Container(
-            color: isUnread ? const Color(0xFFFAF5FF) : Colors.white,
-            child: Stack(
-              children: [
-                if (isUnread)
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(width: 3, color: const Color(0xFF9B59B6)),
-                  ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  leading: CircleAvatar(
-                    radius: 26,
-                    backgroundColor: const Color(0xFF9B59B6).withOpacity(0.15),
-                    child: Text(
-                      (chat['name'] as String)[0],
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF9B59B6),
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    chat['name'] as String,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
-                      color: const Color(0xFF1A1A2E),
-                    ),
-                  ),
-                  subtitle: Text(
-                    chat['msg'] as String,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isUnread
-                          ? const Color(0xFF1A1A2E)
-                          : const Color(0xFF7B8099),
-                      fontWeight: isUnread ? FontWeight.w500 : FontWeight.w400,
-                    ),
-                  ),
-                  trailing: Text(
-                    chat['time'] as String,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFFB0B4C8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }

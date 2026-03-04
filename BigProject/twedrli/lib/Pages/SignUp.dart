@@ -1,169 +1,268 @@
-// ════════════════════════════════════════════════════════════════════════════════
-// SIGN UP SCREEN
-// ════════════════════════════════════════════════════════════════════════════════
 import 'package:flutter/material.dart';
 import 'package:twedrli/Lists/list.dart';
-import 'package:twedrli/Pages/Login.dart';
+import 'package:twedrli/Pages/setup_profile_screen.dart';
+import 'package:twedrli/fabtab.dart';
 import 'package:twedrli/main.dart';
 
-class SignUpScreen extends StatelessWidget {
-  const SignUpScreen({super.key});
+// ════════════════════════════════════════════════════════════════════════════════
+// SIGNUP SCREEN
+// ════════════════════════════════════════════════════════════════════════════════
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
+
+  @override
+  State<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends State<SignupScreen> {
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
+
+  String? _selectedDepartment;
+
+
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  void _signUp() {
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirm = _confirmController.text.trim();
+
+    if (fullName.isEmpty ||
+        email.isEmpty ||
+        _selectedDepartment == null ||
+        password.isEmpty ||
+        confirm.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields.')),
+      );
+      return;
+    }
+
+    if (password != confirm) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match.')));
+      return;
+    }
+
+    // TODO: replace with your actual auth logic (e.g. Firebase, API call)
+    // On success → navigate to SetupProfile (next step)
+  Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => SetupProfileScreen(fullName: fullName)),
+    );  }
 
   @override
   Widget build(BuildContext context) {
-
-
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 30, 155, 240),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset('assets/bg.png', fit: BoxFit.cover),
 
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
-              child: Column(
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                
-                  ),
-                  const SizedBox(height: 24),
-                  const TwedrliLogoColored(size: 56),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Welcome!',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A2B3C),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Create your account',
-                    style: TextStyle(fontSize: 14, color: kGrey),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Form fields
-                  const TwedrliInput(
-                    hint: 'Enter your full name',
-                    icon: Icons.person_outline_rounded,
-                  ),
-                  const SizedBox(height: 14),
-                  const TwedrliInput(
-                    hint: 'name@university.edu',
-                    icon: Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Department dropdown
-                  Container(
-                    decoration: BoxDecoration(
-                      color: kInputBg,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: kBorder),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        isExpanded: true,
-                        hint: Row(
-                          children: const [
-                            Icon(
-                              Icons.account_balance_outlined,
-                              color: kGrey,
-                              size: 20,
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Choose your department',
-                              style: TextStyle(color: kGrey, fontSize: 15),
-                            ),
-                          ],
-                        ),
-                        items: departements
-                            .map(
-                              (d) => DropdownMenuItem(
-                                value: d,
-                                child: Text(
-                                  d,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    color: Color(0xFF1A2B3C),
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (_) {},
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const TwedrliInput(
-                    hint: '••••••••',
-                    icon: Icons.lock_outline_rounded,
-                    obscure: true,
-                  ),
-                  const SizedBox(height: 14),
-                  const TwedrliInput(
-                    hint: '••••••••',
-                    icon: Icons.lock_reset_outlined,
-                    obscure: true,
-                  ),
-                  const SizedBox(height: 24),
-
-                  PrimaryButton(label: 'Create Account', onTap: () {}),
-                  const SizedBox(height: 24),
-                  const OrDivider(),
-                  const SizedBox(height: 18),
-                  const GoogleButton(),
-                  const SizedBox(height: 24),
-
-                  // Already have account
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Already have an account? ',
-                        style: TextStyle(color: kGrey, fontSize: 14),
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: const Text(
-                          'Sign In',
+          Column(
+            children: [
+              // ── Top section ───────────────────────────────────────────
+              Expanded(
+                flex: 4,
+                child: SafeArea(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const TwedrliLogo(size: 60),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Welcome!',
                           style: TextStyle(
-                            color: kBlue,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Create your account',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.white.withOpacity(0.85),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Form ─────────────────────────────────────────────────
+              Expanded(
+                flex: 9,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+                  child: Column(
+                    children: [
+                      TwedrliInput(
+                        hint: 'Enter your full name',
+                        icon: Icons.person_outline_rounded,
+                        controller: _fullNameController,
+                      ),
+                      const SizedBox(height: 14),
+                      TwedrliInput(
+                        hint: 'name@university.edu',
+                        icon: Icons.email_outlined,
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 14),
+                      _DepartmentDropdown(
+                        value: _selectedDepartment,
+                        departments: departements,
+                        onChanged: (val) =>
+                            setState(() => _selectedDepartment = val),
+                      ),
+                      const SizedBox(height: 14),
+                      TwedrliInput(
+                        hint: 'Password',
+                        icon: Icons.lock_outline_rounded,
+                        obscure: true,
+                        controller: _passwordController,
+                      ),
+                      const SizedBox(height: 14),
+                      TwedrliInput(
+                        hint: 'Confirm Password',
+                        icon: Icons.lock_reset_outlined,
+                        obscure: true,
+                        controller: _confirmController,
+                      ),
+                      const SizedBox(height: 28),
+                      PrimaryButton(label: 'Create Account', onTap: _signUp),
+                      const SizedBox(height: 28),
+                      const OrDivider(text: 'Or sign in with'),
+                      const SizedBox(height: 24),
+                      const GoogleButton(label: 'Sign up with Google'),
+                      const SizedBox(height: 36),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Already have an account? ',
+                            style: TextStyle(color: kGrey, fontSize: 14),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.pushReplacementNamed(
+                              context,
+                              '/login',
+                            ),
+                            child: const Text(
+                              'Sign In',
+                              style: TextStyle(
+                                color: kBlue,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const Center(
+                        child: Text(
+                          '© 2026 TWEDRLI CAMPUS INC.',
+                          style: TextStyle(
+                            color: kGrey,
+                            fontSize: 10,
+                            letterSpacing: 0.8,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// DEPARTMENT DROPDOWN WIDGET
+// ════════════════════════════════════════════════════════════════════════════════
+class _DepartmentDropdown extends StatelessWidget {
+  const _DepartmentDropdown({
+    required this.value,
+    required this.departments,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final List<String> departments;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<String>(
+        value: value,
+        onChanged: onChanged,
+        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: kGrey),
+        decoration: InputDecoration(
+          prefixIcon: const Icon(
+            Icons.account_balance_outlined,
+            color: kBlue,
+            size: 20,
+          ),
+          hintText: 'Choose your department',
+          hintStyle: const TextStyle(color: kGrey, fontSize: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 16,
+            horizontal: 16,
           ),
         ),
+        dropdownColor: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        items: departments
+            .map(
+              (dept) => DropdownMenuItem(
+                value: dept,
+                child: Text(
+                  dept,
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+              ),
+            )
+            .toList(),
       ),
     );
   }
