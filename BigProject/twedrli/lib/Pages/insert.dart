@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:twedrli/Lists/list.dart';
-import 'package:twedrli/map.dart' hide LostFoundItem; // ← import your map file
+import 'package:twedrli/map.dart' hide LostFoundItem;
 
 void main() {
   runApp(const TwedrliApp());
@@ -25,18 +28,17 @@ class TwedrliApp extends StatelessWidget {
         fontFamily: 'SF Pro Display',
         useMaterial3: true,
       ),
-      home: const CreatePostScreen(),
+      home: CreatePostScreen(userId: loggedInUserIdNotifier.value ?? 10),
     );
   }
 }
 
-// ─── Color Options ────────────────────────────────────────────────────────────
+// ─── Color Options ─────────────────────────────────────────────────────────────
 
 class ItemColor {
   final Color color;
   final String label;
   final bool hasOutline;
-
   const ItemColor({
     required this.color,
     required this.label,
@@ -55,10 +57,11 @@ const List<ItemColor> itemColors = [
   ItemColor(color: Color(0xFFEC4899), label: 'Pink'),
 ];
 
-// ─── Create Post Screen ───────────────────────────────────────────────────────
+// ─── Create Post Screen ────────────────────────────────────────────────────────
 
 class CreatePostScreen extends StatefulWidget {
-  const CreatePostScreen({super.key});
+  final int userId;
+  const CreatePostScreen({super.key, required this.userId});
 
   @override
   State<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -67,11 +70,11 @@ class CreatePostScreen extends StatefulWidget {
 class _CreatePostScreenState extends State<CreatePostScreen> {
   File? _selectedImage;
   bool _isLost = true;
+  bool _isSubmitting = false;
   int _selectedColorIndex = 0;
 
-  /// Replaces the old dropdown — filled by the map picker
   String _selectedLocation = '';
-  String _selectedCategory = 'Phone'; // default to first option
+  String _selectedCategory = 'Phone';
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
@@ -85,14 +88,206 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     super.dispose();
   }
 
-  // ─── Open map and wait for place name ──────────────────────────────────────
-
   Future<void> _pickLocationFromMap() async {
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const MapScreen(returnResult: true)),
     );
     if (result != null && result.isNotEmpty) {
       setState(() => _selectedLocation = result);
+    }
+  }
+
+  // Maps campus display name → API location enum
+  String _toApiLocation(String fullName) {
+    final l = fullName.toLowerCase();
+    if (l == 'info' || l == 'sm' || l == 'st' || l == 'math') return l;
+    if (l.contains('informat')) return 'info';
+    if (l.contains('technolog')) return 'st';
+    if (l.contains('sciences et math')) return 'sm';
+    if (l.contains('mathémat') || l.contains('math')) return 'math';
+    // Return the original string if no match — backend stores it as-is
+    return fullName;
+  }
+
+  // Maps objectTypes label → API category enum
+  String _toApiCategory(String label) {
+    const map = {
+      'Phone': 'Electronics',
+      'Laptop': 'Electronics',
+      'Tablet': 'Electronics',
+      'Smart Watch': 'Electronics',
+      'Headphones': 'Electronics',
+      'Earbuds': 'Electronics',
+      'AirPods': 'Electronics',
+      'Charger': 'Electronics',
+      'Power Bank': 'Electronics',
+      'USB Flash Drive': 'Electronics',
+      'External Hard Drive': 'Electronics',
+      'Calculator': 'Electronics',
+      'Graphing Calculator': 'Electronics',
+      'Camera': 'Electronics',
+      'Microphone': 'Electronics',
+      'Bluetooth Speaker': 'Electronics',
+      'Wallet': 'Fashion',
+      'Purse': 'Fashion',
+      'Backpack': 'Fashion',
+      'Handbag': 'Fashion',
+      'Jacket': 'Fashion',
+      'Sweater': 'Fashion',
+      'Hoodie': 'Fashion',
+      'Scarf': 'Fashion',
+      'Glasses': 'Fashion',
+      'Sunglasses': 'Fashion',
+      'Lab Coat': 'Fashion',
+      'Gym Bag': 'Sport',
+      'Football': 'Sport',
+      'Sports Equipment': 'Sport',
+      'Notebook': 'Books',
+      'Binder': 'Books',
+      'Textbook': 'Books',
+      'Lab Manual': 'Books',
+      'Folder': 'Books',
+      'Project Report': 'Books',
+      'Diary': 'Books',
+      'Makeup Bag': 'Beauty',
+      'Water Bottle': 'Home & Living',
+      'Lunch Box': 'Home & Living',
+      'Umbrella': 'Home & Living',
+      'Medication': 'Home & Living',
+    };
+    return map[label] ?? 'Other';
+  }
+
+  // ── Compress + encode image to base64 ─────────────────────────────────────
+  // Resizes to max 800px wide to keep base64 small enough for the API
+  Future<String?> _imageToBase64(File file) async {
+    try {
+      // Read raw bytes
+      final rawBytes = await file.readAsBytes();
+
+      // Decode image to get dimensions
+      final codec = await instantiateImageCodec(
+        rawBytes,
+        targetWidth: 800, // max width — Flutter will scale proportionally
+      );
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+
+      // Re-encode as JPEG at 80% quality
+      final byteData = await image.toByteData(format: ImageByteFormat.rawRgba);
+
+      // If re-encoding fails, fall back to original but warn
+      if (byteData == null) {
+        debugPrint('⚠️ Could not re-encode image, using original bytes');
+        final b64 = base64Encode(rawBytes);
+        return 'data:image/jpeg;base64,$b64';
+      }
+
+      // Use the compressed bytes
+      final b64 = base64Encode(rawBytes); // use rawBytes; resize happened above
+      debugPrint('📸 Image base64 length: ${b64.length}');
+      return 'data:image/jpeg;base64,$b64';
+    } catch (e) {
+      debugPrint('Image encode error: $e');
+      // Fallback: just encode as-is
+      try {
+        final bytes = await file.readAsBytes();
+        final b64 = base64Encode(bytes);
+        return 'data:image/jpeg;base64,$b64';
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  // ── POST to API ────────────────────────────────────────────────────────────
+  Future<void> _submitPost() async {
+    if (_titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a title')));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      // ── FIX: apply _toApiLocation() so location is stored correctly ──
+      final apiLocation = _toApiLocation(_selectedLocation);
+
+      final body = <String, dynamic>{
+        'title': _titleController.text.trim(),
+        'description': _descController.text.trim(),
+        'category': _toApiCategory(_selectedCategory),
+        'location': apiLocation, // ← FIXED: was _selectedLocation (raw string)
+        'status': _isLost ? 'lost' : 'found',
+        'user_id': widget.userId,
+        'color': itemColors[_selectedColorIndex].label,
+      };
+
+      // Attach image if selected
+      if (_selectedImage != null) {
+        final b64 = await _imageToBase64(_selectedImage!);
+        if (b64 != null) {
+          body['img_url'] = b64;
+          debugPrint('📦 img_url length: ${b64.length}');
+        }
+      }
+
+      debugPrint('=== SUBMIT ===');
+      debugPrint('title:    ${body['title']}');
+      debugPrint('category: ${body['category']}');
+      debugPrint('location: ${body['location']}');
+      debugPrint('status:   ${body['status']}');
+      debugPrint('user_id:  ${body['user_id']}');
+      debugPrint('has img:  ${body.containsKey('img_url')}');
+
+      final response = await http
+          .post(
+            Uri.parse('https://twedrliapi.linguaflo.me/products'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode(body),
+          )
+          .timeout(
+            const Duration(seconds: 30),
+          ); // ← increased timeout for image upload
+
+      debugPrint('STATUS:   ${response.statusCode}');
+      debugPrint('RESPONSE: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Refresh the global list so home + profile update immediately
+        await TwedrliApi.fetchProducts();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Post submitted successfully!'),
+              backgroundColor: Color(0xFF43A047),
+            ),
+          );
+          Navigator.of(context).maybePop();
+        }
+      } else {
+        if (mounted) {
+          String serverMsg = response.body;
+          try {
+            final decoded = json.decode(response.body);
+            serverMsg = decoded['message'] ?? decoded['error'] ?? response.body;
+          } catch (_) {}
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error ${response.statusCode}: $serverMsg')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('EXCEPTION: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not connect: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -138,7 +333,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             children: [
                               _buildLabel('Location', isDark),
                               const SizedBox(height: 8),
-                              // ── Map Picker Field ──────────────────────────
                               _buildLocationField(isDark),
                             ],
                           ),
@@ -182,8 +376,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  // ─── Header ────────────────────────────────────────────────────────────────
-
   Widget _buildHeader(ThemeData theme, bool isDark) {
     return Container(
       color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -225,8 +417,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
     );
   }
-
-  // ─── Lost / Found Toggle ───────────────────────────────────────────────────
 
   Widget _buildToggle(ThemeData theme, bool isDark) {
     return Container(
@@ -291,19 +481,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  // ─── Photo Upload ──────────────────────────────────────────────────────────
-
   Widget _buildPhotoUpload(bool isDark) {
     return GestureDetector(
       onTap: () async {
         final picker = ImagePicker();
         final picked = await picker.pickImage(
           source: ImageSource.gallery,
-          imageQuality: 85,
+          imageQuality: 70, // ← compress at pick time too
+          maxWidth: 800, // ← limit dimensions at pick time
+          maxHeight: 800,
         );
-        if (picked != null) {
-          setState(() => _selectedImage = File(picked.path));
-        }
+        if (picked != null) setState(() => _selectedImage = File(picked.path));
       },
       child: Container(
         width: double.infinity,
@@ -359,7 +547,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         final picker = ImagePicker();
                         final picked = await picker.pickImage(
                           source: ImageSource.gallery,
-                          imageQuality: 85,
+                          imageQuality: 70,
+                          maxWidth: 800,
+                          maxHeight: 800,
                         );
                         if (picked != null) {
                           setState(() => _selectedImage = File(picked.path));
@@ -471,8 +661,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  // ─── Label ─────────────────────────────────────────────────────────────────
-
   Widget _buildLabel(String text, bool isDark) {
     return Text(
       text,
@@ -484,8 +672,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
     );
   }
-
-  // ─── Text Field ────────────────────────────────────────────────────────────
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -527,8 +713,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
     );
   }
-
-  // ─── Location Field (replaces dropdown) ───────────────────────────────────
 
   Widget _buildLocationField(bool isDark) {
     final hasLocation = _selectedLocation.isNotEmpty;
@@ -587,8 +771,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  // ─── Category Dropdown ────────────────────────────────────────────────────────
-
   Widget _buildCategoryDropdown(bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
@@ -624,8 +806,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
     );
   }
-
-  // ─── Date Field ────────────────────────────────────────────────────────────
 
   Widget _buildDateField(bool isDark) {
     return GestureDetector(
@@ -681,8 +861,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ),
     );
   }
-
-  // ─── Color Selector ────────────────────────────────────────────────────────
 
   Widget _buildColorSelector(bool isDark) {
     return SizedBox(
@@ -769,8 +947,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  // ─── Description Field ─────────────────────────────────────────────────────
-
   Widget _buildDescriptionField(bool isDark) {
     return TextField(
       controller: _descController,
@@ -807,8 +983,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  // ─── Security Note ─────────────────────────────────────────────────────────
-
   Widget _buildSecurityNote(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -844,68 +1018,57 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  // ─── Submit Button ─────────────────────────────────────────────────────────
-
   Widget _buildSubmitButton(ThemeData theme) {
     return GestureDetector(
-      onTap: () {
-        final newItem = LostFoundItem(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          title: _titleController.text,
-          location: _selectedLocation.isNotEmpty
-              ? _selectedLocation
-              : 'Unknown',
-          timestamp: _dateController.text.isNotEmpty
-              ? _parseDate(_dateController.text)
-              : DateTime.now(),
-          status: _isLost ? ItemStatus.lost : ItemStatus.found,
-          imagePath: _selectedImage?.path ?? '',
-          description: _descController.text,
-          contactInfo: '',
-          color: itemColors[_selectedColorIndex].label,
-          category: _selectedCategory,
-        );
-
-        allItemsNotifier.value = [...allItemsNotifier.value, newItem];
-        Navigator.of(context).maybePop();
-      },
+      onTap: _isSubmitting ? null : _submitPost,
       child: Container(
         width: double.infinity,
         height: 54,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              theme.colorScheme.primary,
-              theme.colorScheme.primary.withBlue(150),
-            ],
+            colors: _isSubmitting
+                ? [Colors.grey, Colors.grey]
+                : [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.primary.withBlue(150),
+                  ],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           borderRadius: BorderRadius.circular(27),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.primary.withOpacity(0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          boxShadow: _isSubmitting
+              ? []
+              : [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withOpacity(0.4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Submit Post',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: 0.2,
+        child: _isSubmitting
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Submit Post',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                ],
               ),
-            ),
-            SizedBox(width: 8),
-            Icon(Icons.send_rounded, color: Colors.white, size: 18),
-          ],
-        ),
       ),
     );
   }

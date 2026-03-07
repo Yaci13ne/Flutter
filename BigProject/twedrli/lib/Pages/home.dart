@@ -1,7 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:twedrli/Lists/list.dart'; // ← model now lives here
+import 'package:twedrli/Lists/list.dart';
 
 void main() {
   runApp(const TwedrliApp());
@@ -75,6 +76,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const List<String> _filterLabels = ['All', 'Lost', 'Found', 'Claimed'];
 
+  @override
+  void initState() {
+    super.initState();
+    TwedrliApi.fetchProducts();
+  }
+
   List<LostFoundItem> _getFilteredItems(List<LostFoundItem> items) {
     Iterable<LostFoundItem> filtered = items;
     if (_selectedFilterIndex != 0) {
@@ -101,15 +108,59 @@ class _HomeScreenState extends State<HomeScreen> {
     Widget imageWidget;
     if (item.imagePath.isEmpty) {
       imageWidget = Container(
-        color: isDark ? Colors.grey[800] : const Color(0xFFE3F2FD),
+        color: isDark ? Colors.grey[800] : _colorForCategory(item.category),
         child: Center(
           child: Icon(
-            Icons.image_not_supported,
+            _iconForCategory(item.category),
             size: 60,
-            color: isDark ? Colors.grey[600] : Colors.grey[400],
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
           ),
         ),
       );
+    } else if (item.imagePath.startsWith('http://') ||
+        item.imagePath.startsWith('https://')) {
+      imageWidget = Image.network(
+        item.imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Center(
+          child: Icon(
+            _iconForCategory(item.category),
+            size: 60,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
+          ),
+        ),
+        loadingBuilder: (_, child, progress) => progress == null
+            ? child
+            : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    } else if (item.imagePath.startsWith('data:image') ||
+        _isBase64(item.imagePath)) {
+      try {
+        final bytes = base64Decode(
+          item.imagePath.contains(',')
+              ? item.imagePath.split(',').last
+              : item.imagePath,
+        );
+        imageWidget = Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Center(
+            child: Icon(
+              _iconForCategory(item.category),
+              size: 60,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+        );
+      } catch (_) {
+        imageWidget = Center(
+          child: Icon(
+            _iconForCategory(item.category),
+            size: 60,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
+          ),
+        );
+      }
     } else if (item.imagePath.startsWith('assets/')) {
       imageWidget = Image.asset(
         item.imagePath,
@@ -176,339 +227,497 @@ class _HomeScreenState extends State<HomeScreen> {
     return imageWidget;
   }
 
+  // ── Delete confirmation + API call ──────────────────────────────────────────
+  Future<void> _deleteItem(BuildContext context, LostFoundItem item) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Delete Post',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        content: Text('Are you sure you want to delete "${item.title}"?'),
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black54,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final success = await TwedrliApi.deleteProduct(item.id);
+      if (context.mounted) {
+        if (success) {
+          // Remove from local notifier immediately
+          allItemsNotifier.value = allItemsNotifier.value
+              .where((i) => i.id != item.id)
+              .toList();
+          // Also remove from saved items if saved
+          savedItemsNotifier.value = savedItemsNotifier.value
+              .where((i) => i.id != item.id)
+              .toList();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Post deleted successfully'),
+              backgroundColor: Color(0xFF43A047),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to delete post. Please try again.'),
+              backgroundColor: Color(0xFFE53935),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return ValueListenableBuilder<List<LostFoundItem>>(
-      valueListenable: allItemsNotifier,
-      builder: (context, items, _) {
-        final filteredItems = _getFilteredItems(items);
-        final activeCount = items
-            .where((i) => i.status != ItemStatus.claimed)
-            .length;
-        final claimedCount = items
-            .where((i) => i.status == ItemStatus.claimed)
-            .length;
+    return ValueListenableBuilder<bool>(
+      valueListenable: isLoadingNotifier,
+      builder: (context, isLoading, _) {
+        if (isLoading) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return ValueListenableBuilder<String>(
+          valueListenable: errorNotifier,
+          builder: (context, error, _) {
+            if (error.isNotEmpty) {
+              return Scaffold(
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.wifi_off, size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text(error, textAlign: TextAlign.center),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: TwedrliApi.fetchProducts,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return ValueListenableBuilder<List<LostFoundItem>>(
+              valueListenable: allItemsNotifier,
+              builder: (context, items, _) {
+                final filteredItems = _getFilteredItems(items);
+                final activeCount = items
+                    .where((i) => i.status != ItemStatus.claimed)
+                    .length;
+                final claimedCount = items
+                    .where((i) => i.status == ItemStatus.claimed)
+                    .length;
 
-        return Scaffold(
-          backgroundColor: theme.scaffoldBackgroundColor,
-          appBar: AppBar(
-            toolbarHeight: 120,
-            backgroundColor: theme.appBarTheme.backgroundColor,
-            foregroundColor: theme.appBarTheme.foregroundColor,
-            leading: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Image.asset('assets/logo.png', height: 70, width: 50),
-            ),
-            leadingWidth: 100,
-            actions: [
-              Container(
-                margin: const EdgeInsets.only(right: 16),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[800] : const Color(0xFFE3F2FD),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF4CAF50),
-                        shape: BoxShape.circle,
+                return Scaffold(
+                  backgroundColor: theme.scaffoldBackgroundColor,
+                  appBar: AppBar(
+                    toolbarHeight: 120,
+                    backgroundColor: theme.appBarTheme.backgroundColor,
+                    foregroundColor: theme.appBarTheme.foregroundColor,
+                    leading: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Image.asset(
+                        'assets/logo.png',
+                        height: 70,
+                        width: 50,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$activeCount active',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: isDark
-                            ? Colors.white70
-                            : const Color(0xFF1976D2),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 1,
-                      height: 16,
-                      color: isDark
-                          ? Colors.grey[600]
-                          : const Color(0xFFBBDEFB),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$claimedCount claimed',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isDark
-                            ? Colors.grey[500]
-                            : const Color(0xFF757575),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          body: Column(
-            children: [
-              // ── Filter and Sort Bar ──
-              Container(
-                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: List.generate(_filterLabels.length, (i) {
-                            final bool isSelected = i == _selectedFilterIndex;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: FilterChip(
-                                label: Text(
-                                  _filterLabels[i],
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? Colors.white
-                                        : (isDark
-                                              ? Colors.grey[400]
-                                              : const Color(0xFF555555)),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                selected: isSelected,
-                                onSelected: (_) =>
-                                    setState(() => _selectedFilterIndex = i),
-                                backgroundColor: isDark
-                                    ? Colors.grey[800]
-                                    : Colors.white,
-                                selectedColor: theme.colorScheme.primary,
-                                checkmarkColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                  side: BorderSide(
-                                    color: isSelected
-                                        ? Colors.transparent
-                                        : (isDark
-                                              ? Colors.grey[700]!
-                                              : const Color(0xFFE0E0E0)),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                              ),
-                            );
-                          }),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => setState(
-                        () => _isSortMenuVisible = !_isSortMenuVisible,
-                      ),
-                      child: Container(
+                    leadingWidth: 100,
+                    actions: [
+                      Container(
+                        margin: const EdgeInsets.only(right: 16),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 8,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
                           color: isDark
-                              ? Colors.grey[800]!
-                              : const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.grey[700]!
-                                : const Color(0xFFE0E0E0),
-                          ),
+                              ? Colors.grey[800]
+                              : const Color(0xFFE3F2FD),
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              _currentSort.icon,
-                              size: 18,
-                              color: theme.colorScheme.primary,
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF4CAF50),
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
                             Text(
-                              'Sort',
+                              '$activeCount active',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: theme.colorScheme.primary,
+                                color: isDark
+                                    ? Colors.white70
+                                    : const Color(0xFF1976D2),
                               ),
                             ),
-                            Icon(
-                              _isSortMenuVisible
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              size: 18,
-                              color: theme.colorScheme.primary,
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 1,
+                              height: 16,
+                              color: isDark
+                                  ? Colors.grey[600]
+                                  : const Color(0xFFBBDEFB),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$claimedCount claimed',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: isDark
+                                    ? Colors.grey[500]
+                                    : const Color(0xFF757575),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── Sort Options Menu ──
-              if (_isSortMenuVisible)
-                Container(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
+                    ],
                   ),
-                  child: Column(
+                  body: Column(
                     children: [
-                      Divider(
-                        height: 1,
-                        color: isDark ? Colors.grey[800] : Colors.grey[300],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: SortOption.values.map((option) {
-                          final isSelected = option == _currentSort;
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() {
-                                _currentSort = option;
-                                _isSortMenuVisible = false;
-                              }),
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 4,
+                      // ── Filter and Sort Bar ──
+                      Container(
+                        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: List.generate(
+                                    _filterLabels.length,
+                                    (i) {
+                                      final bool isSelected =
+                                          i == _selectedFilterIndex;
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 8,
+                                        ),
+                                        child: FilterChip(
+                                          label: Text(
+                                            _filterLabels[i],
+                                            style: TextStyle(
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : (isDark
+                                                        ? Colors.grey[400]
+                                                        : const Color(
+                                                            0xFF555555,
+                                                          )),
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          selected: isSelected,
+                                          onSelected: (_) => setState(
+                                            () => _selectedFilterIndex = i,
+                                          ),
+                                          backgroundColor: isDark
+                                              ? Colors.grey[800]
+                                              : Colors.white,
+                                          selectedColor:
+                                              theme.colorScheme.primary,
+                                          checkmarkColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              30,
+                                            ),
+                                            side: BorderSide(
+                                              color: isSelected
+                                                  ? Colors.transparent
+                                                  : (isDark
+                                                        ? Colors.grey[700]!
+                                                        : const Color(
+                                                            0xFFE0E0E0,
+                                                          )),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 8,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () => setState(
+                                () => _isSortMenuVisible = !_isSortMenuVisible,
+                              ),
+                              child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
+                                  horizontal: 12,
+                                  vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? (isDark
-                                            ? theme.colorScheme.primary
-                                                  .withOpacity(0.2)
-                                            : const Color(0xFFE3F2FD))
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(20),
+                                  color: isDark
+                                      ? Colors.grey[800]!
+                                      : const Color(0xFFF5F5F5),
+                                  borderRadius: BorderRadius.circular(30),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.grey[700]!
+                                        : const Color(0xFFE0E0E0),
+                                  ),
                                 ),
-                                child: Column(
+                                child: Row(
                                   children: [
                                     Icon(
-                                      option.icon,
+                                      _currentSort.icon,
                                       size: 18,
-                                      color: isSelected
-                                          ? theme.colorScheme.primary
-                                          : (isDark
-                                                ? Colors.grey[500]
-                                                : const Color(0xFF757575)),
+                                      color: theme.colorScheme.primary,
                                     ),
-                                    const SizedBox(height: 2),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      option.label.split(' ').first,
+                                      'Sort',
                                       style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w600
-                                            : FontWeight.normal,
-                                        color: isSelected
-                                            ? theme.colorScheme.primary
-                                            : (isDark
-                                                  ? Colors.grey[500]
-                                                  : const Color(0xFF757575)),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: theme.colorScheme.primary,
                                       ),
+                                    ),
+                                    Icon(
+                                      _isSortMenuVisible
+                                          ? Icons.keyboard_arrow_up
+                                          : Icons.keyboard_arrow_down,
+                                      size: 18,
+                                      color: theme.colorScheme.primary,
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-                          );
-                        }).toList(),
+                          ],
+                        ),
+                      ),
+
+                      // ── Sort Options Menu ──
+                      if (_isSortMenuVisible)
+                        Container(
+                          color: isDark
+                              ? const Color(0xFF1E1E1E)
+                              : Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          child: Column(
+                            children: [
+                              Divider(
+                                height: 1,
+                                color: isDark
+                                    ? Colors.grey[800]
+                                    : Colors.grey[300],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: SortOption.values.map((option) {
+                                  final isSelected = option == _currentSort;
+                                  return Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => setState(() {
+                                        _currentSort = option;
+                                        _isSortMenuVisible = false;
+                                      }),
+                                      child: Container(
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? (isDark
+                                                    ? theme.colorScheme.primary
+                                                          .withOpacity(0.2)
+                                                    : const Color(0xFFE3F2FD))
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Icon(
+                                              option.icon,
+                                              size: 18,
+                                              color: isSelected
+                                                  ? theme.colorScheme.primary
+                                                  : (isDark
+                                                        ? Colors.grey[500]
+                                                        : const Color(
+                                                            0xFF757575,
+                                                          )),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              option.label.split(' ').first,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.w600
+                                                    : FontWeight.normal,
+                                                color: isSelected
+                                                    ? theme.colorScheme.primary
+                                                    : (isDark
+                                                          ? Colors.grey[500]
+                                                          : const Color(
+                                                              0xFF757575,
+                                                            )),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // ── Items List ──
+                      Expanded(
+                        child: filteredItems.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inbox_outlined,
+                                      size: 80,
+                                      color: isDark
+                                          ? Colors.grey[700]
+                                          : Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No items found',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark
+                                            ? Colors.grey[500]
+                                            : Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Try adjusting your filters',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: isDark
+                                            ? Colors.grey[600]
+                                            : Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : GridView.builder(
+                                padding: const EdgeInsets.all(12),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 12,
+                                      mainAxisSpacing: 12,
+                                      childAspectRatio: 0.58,
+                                    ),
+                                itemCount: filteredItems.length,
+                                itemBuilder: (context, index) {
+                                  final item = filteredItems[index];
+                                  // ── Check ownership ──
+                                  final isOwner =
+                                      item.userId != null &&
+                                      item.userId ==
+                                          loggedInUserIdNotifier.value;
+                                  return _ItemCard(
+                                    item: item,
+                                    isOwner: isOwner,
+                                    onTap: () =>
+                                        _showItemDetails(context, item),
+                                    onDelete: isOwner
+                                        ? () => _deleteItem(context, item)
+                                        : null,
+                                  );
+                                },
+                              ),
                       ),
                     ],
                   ),
-                ),
-
-              // ── Items List ──
-              Expanded(
-                child: filteredItems.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.inbox_outlined,
-                              size: 80,
-                              color: isDark
-                                  ? Colors.grey[700]
-                                  : Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No items found',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: isDark
-                                    ? Colors.grey[500]
-                                    : Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Try adjusting your filters',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isDark
-                                    ? Colors.grey[600]
-                                    : Colors.grey[500],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(12),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.58,
-                            ),
-                        itemCount: filteredItems.length,
-                        itemBuilder: (context, index) {
-                          return _ItemCard(
-                            item: filteredItems[index],
-                            onTap: () =>
-                                _showItemDetails(context, filteredItems[index]),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -517,6 +726,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showItemDetails(BuildContext context, LostFoundItem item) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
+    final isOwner =
+        item.userId != null && item.userId == loggedInUserIdNotifier.value;
 
     showModalBottomSheet(
       context: context,
@@ -580,6 +791,23 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const Spacer(),
+                        // ── Show delete icon in detail if owner ──
+                        if (isOwner)
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                              _deleteItem(context, item);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                    
+              
+                            ),
+                          ),
+                        const SizedBox(width: 8),
                         Text(
                           item.timeAgo,
                           style: TextStyle(
@@ -612,7 +840,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          item.location,
+                          item.locationDisplay,
                           style: TextStyle(
                             fontSize: 15,
                             color: isDark
@@ -680,31 +908,33 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (item.status != ItemStatus.claimed) ...[
                       Row(
                         children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: theme.colorScheme.primary,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
+                          // ── Hide Contact/Claim button for own posts ──
+                          if (!isOwner)
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {},
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: Text(
-                                item.status == ItemStatus.lost
-                                    ? 'Contact Owner'
-                                    : 'Claim Item',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                child: Text(
+                                  item.status == ItemStatus.lost
+                                      ? 'Contact Owner'
+                                      : 'Claim Item',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
+                          if (!isOwner) const SizedBox(width: 12),
                           Container(
                             width: 56,
                             height: 56,
@@ -750,29 +980,123 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ─────────────────────────────────────────────
+// CATEGORY HELPERS
+// ─────────────────────────────────────────────
+
+bool _isBase64(String s) {
+  if (s.length % 4 != 0) return false;
+  return RegExp(r'^[A-Za-z0-9+/]*={0,2}$').hasMatch(s);
+}
+
+IconData _iconForCategory(String category) {
+  switch (category.toLowerCase()) {
+    case 'electronics':
+      return Icons.devices;
+    case 'fashion':
+      return Icons.checkroom;
+    case 'home & living':
+      return Icons.chair;
+    case 'beauty':
+      return Icons.face;
+    case 'sport':
+      return Icons.sports_soccer;
+    case 'books':
+      return Icons.menu_book;
+    default:
+      return Icons.category;
+  }
+}
+
+Color _colorForCategory(String category) {
+  switch (category.toLowerCase()) {
+    case 'electronics':
+      return const Color(0xFFE3F2FD);
+    case 'fashion':
+      return const Color(0xFFFCE4EC);
+    case 'home & living':
+      return const Color(0xFFF3E5F5);
+    case 'beauty':
+      return const Color(0xFFFFF8E1);
+    case 'sport':
+      return const Color(0xFFE8F5E9);
+    case 'books':
+      return const Color(0xFFFFF3E0);
+    default:
+      return const Color(0xFFF5F5F5);
+  }
+}
+
+// ─────────────────────────────────────────────
 // ITEM IMAGE WIDGET
 // ─────────────────────────────────────────────
 
 class _ItemImage extends StatelessWidget {
   final String imagePath;
   final bool isClaimed;
+  final String category;
 
-  const _ItemImage({required this.imagePath, required this.isClaimed});
+  const _ItemImage({
+    required this.imagePath,
+    required this.isClaimed,
+    required this.category,
+  });
 
   Widget _buildImage(BoxFit fit, BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (imagePath.isEmpty) {
       return Container(
-        color: isDark ? Colors.grey[800] : const Color(0xFFE3F2FD),
+        color: isDark ? Colors.grey[800] : _colorForCategory(category),
         child: Center(
           child: Icon(
-            Icons.image_not_supported,
+            _iconForCategory(category),
             size: 48,
-            color: isDark ? Colors.grey[600] : Colors.grey[400],
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
           ),
         ),
       );
+    }
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return Image.network(
+        imagePath,
+        fit: fit,
+        errorBuilder: (_, __, ___) => Center(
+          child: Icon(
+            _iconForCategory(category),
+            size: 48,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
+          ),
+        ),
+        loadingBuilder: (_, child, progress) => progress == null
+            ? child
+            : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (imagePath.startsWith('data:image') || _isBase64(imagePath)) {
+      try {
+        final bytes = base64Decode(
+          imagePath.contains(',') ? imagePath.split(',').last : imagePath,
+        );
+        return Image.memory(
+          bytes,
+          fit: fit,
+          errorBuilder: (_, __, ___) => Center(
+            child: Icon(
+              _iconForCategory(category),
+              size: 48,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+        );
+      } catch (_) {
+        return Center(
+          child: Icon(
+            _iconForCategory(category),
+            size: 48,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
+          ),
+        );
+      }
     }
     if (imagePath.startsWith('assets/')) {
       return Image.asset(
@@ -867,9 +1191,16 @@ class _ItemImage extends StatelessWidget {
 
 class _ItemCard extends StatefulWidget {
   final LostFoundItem item;
+  final bool isOwner;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
-  const _ItemCard({required this.item, required this.onTap});
+  const _ItemCard({
+    required this.item,
+    required this.isOwner,
+    required this.onTap,
+    this.onDelete,
+  });
 
   @override
   State<_ItemCard> createState() => _ItemCardState();
@@ -931,8 +1262,10 @@ class _ItemCardState extends State<_ItemCard> {
                   child: _ItemImage(
                     imagePath: widget.item.imagePath,
                     isClaimed: _isClaimed,
+                    category: widget.item.category,
                   ),
                 ),
+                // ── Status badge ──
                 Positioned(
                   top: 8,
                   left: 8,
@@ -970,6 +1303,7 @@ class _ItemCardState extends State<_ItemCard> {
                     ),
                   ),
                 ),
+                // ── Time badge ──
                 Positioned(
                   top: 8,
                   right: 8,
@@ -1014,65 +1348,99 @@ class _ItemCardState extends State<_ItemCard> {
                     ),
                   ),
                 ),
+                // ── Delete button (owner only) OR Bookmark (others) ──
                 if (!_isClaimed)
                   Positioned(
                     bottom: 8,
                     right: 8,
-                    child: Container(
-                      height: 28,
-                      width: 28,
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.grey[800]! : Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isDark
-                                ? Colors.transparent
-                                : Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        icon: Icon(
-                          _isSaved ? Icons.bookmark : Icons.bookmark_outline,
-                          size: 16,
-                          color: _isSaved
-                              ? theme.colorScheme.primary
-                              : (isDark
-                                    ? Colors.grey[400]
-                                    : const Color(0xFF555555)),
-                        ),
-                        onPressed: () {
-                          final saved = savedItemsNotifier.value;
-                          final alreadySaved = saved.any(
-                            (s) => s.id == widget.item.id,
-                          );
-                          if (alreadySaved) {
-                            savedItemsNotifier.value = saved
-                                .where((s) => s.id != widget.item.id)
-                                .toList();
-                          } else {
-                            savedItemsNotifier.value = [...saved, widget.item];
-                          }
-                          setState(() => _isSaved = !alreadySaved);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                !alreadySaved
-                                    ? '${widget.item.title} saved'
-                                    : '${widget.item.title} removed from saved',
+                    child: widget.isOwner
+                        // ── DELETE button for owner ──
+                        ? GestureDetector(
+                            onTap: widget.onDelete,
+                            child: Container(
+                              height: 28,
+                              width: 28,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFEEEE),
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
-                              duration: const Duration(seconds: 1),
-                              behavior: SnackBarBehavior.floating,
-                              backgroundColor: isDark ? Colors.grey[900] : null,
+                              child: const Icon(
+                                Icons.delete_outline,
+                                size: 16,
+                                color: Color(0xFFE53935),
+                              ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
+                          )
+                        // ── BOOKMARK button for others ──
+                        : Container(
+                            height: 28,
+                            width: 28,
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.grey[800]! : Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isDark
+                                      ? Colors.transparent
+                                      : Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: Icon(
+                                _isSaved
+                                    ? Icons.bookmark
+                                    : Icons.bookmark_outline,
+                                size: 16,
+                                color: _isSaved
+                                    ? theme.colorScheme.primary
+                                    : (isDark
+                                          ? Colors.grey[400]
+                                          : const Color(0xFF555555)),
+                              ),
+                              onPressed: () {
+                                final saved = savedItemsNotifier.value;
+                                final alreadySaved = saved.any(
+                                  (s) => s.id == widget.item.id,
+                                );
+                                if (alreadySaved) {
+                                  savedItemsNotifier.value = saved
+                                      .where((s) => s.id != widget.item.id)
+                                      .toList();
+                                } else {
+                                  savedItemsNotifier.value = [
+                                    ...saved,
+                                    widget.item,
+                                  ];
+                                }
+                                setState(() => _isSaved = !alreadySaved);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      !alreadySaved
+                                          ? '${widget.item.title} saved'
+                                          : '${widget.item.title} removed from saved',
+                                    ),
+                                    duration: const Duration(seconds: 1),
+                                    behavior: SnackBarBehavior.floating,
+                                    backgroundColor: isDark
+                                        ? Colors.grey[900]
+                                        : null,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
                   ),
               ],
             ),
@@ -1146,7 +1514,7 @@ class _ItemCardState extends State<_ItemCard> {
                         const SizedBox(width: 3),
                         Expanded(
                           child: Text(
-                            widget.item.location,
+                            widget.item.locationDisplay,
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark
@@ -1191,46 +1559,48 @@ class _ItemCardState extends State<_ItemCard> {
                     if (!_isClaimed) ...[
                       Row(
                         children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      widget.item.status == ItemStatus.lost
-                                          ? 'Contacting owner...'
-                                          : 'Claiming item...',
+                          // ── No Contact/Claim button for own posts ──
+                          if (!widget.isOwner)
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        widget.item.status == ItemStatus.lost
+                                            ? 'Contacting owner...'
+                                            : 'Claiming item...',
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: isDark
+                                          ? Colors.grey[900]
+                                          : null,
                                     ),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: isDark
-                                        ? Colors.grey[900]
-                                        : null,
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
                                   ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: theme.colorScheme.primary,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  elevation: 0,
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: Text(
-                                widget.item.status == ItemStatus.lost
-                                    ? 'Contact'
-                                    : 'Claim',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                child: Text(
+                                  widget.item.status == ItemStatus.lost
+                                      ? 'Contact'
+                                      : 'Claim',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
+                          if (!widget.isOwner) const SizedBox(width: 6),
                           Container(
                             width: 38,
                             height: 38,

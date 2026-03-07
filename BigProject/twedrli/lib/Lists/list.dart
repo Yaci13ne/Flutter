@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 // ─────────────────────────────────────────────
 // ENUMS & DATA MODEL
@@ -47,6 +49,7 @@ class LostFoundItem {
   final String contactInfo;
   final String color;
   final String category;
+  final int? userId; // ← ADDED: to identify the post owner
 
   String get timeAgo {
     final now = DateTime.now();
@@ -55,6 +58,17 @@ class LostFoundItem {
     if (difference.inHours > 0) return '${difference.inHours}h ago';
     if (difference.inMinutes > 0) return '${difference.inMinutes}m ago';
     return 'Just now';
+  }
+
+  // Converts raw API location to display name
+  String get locationDisplay {
+    const map = {
+      'info': 'Faculté d\'Informatique',
+      'sm': 'Faculté des Sciences et Mathématiques',
+      'st': 'Faculté des Sciences et Technologie',
+      'math': 'Faculté des Mathématiques',
+    };
+    return map[location] ?? location;
   }
 
   const LostFoundItem({
@@ -68,145 +82,150 @@ class LostFoundItem {
     this.contactInfo = '',
     this.color = '',
     required this.category,
+    this.userId, // ← ADDED
   });
+
+  // Parse one API JSON object into a LostFoundItem
+  factory LostFoundItem.fromJson(
+    Map<String, dynamic> json, {
+    String reporterName = '',
+  }) {
+    ItemStatus parseStatus(String? s) {
+      switch (s) {
+        case 'found':
+          return ItemStatus.found;
+        case 'claimed':
+          return ItemStatus.claimed;
+        default:
+          return ItemStatus.lost;
+      }
+    }
+
+    final userId = json['user_id'] as int?; // ← ADDED
+
+    final contact = reporterName.isNotEmpty
+        ? 'Reported by $reporterName'
+        : 'Reported by user #${json['user_id']}';
+
+    return LostFoundItem(
+      id: json['id'].toString(),
+      title: json['title'] ?? 'Untitled',
+      description: json['description'] ?? '',
+      category: json['category'] ?? 'Other',
+      status: parseStatus(json['status'] as String?),
+      location: json['location'] ?? '',
+      timestamp: json['date'] != null
+          ? DateTime.tryParse(json['date']) ?? DateTime.now()
+          : DateTime.now(),
+      imagePath: json['img_url'] ?? '',
+      contactInfo: contact,
+      color: json['color'] ?? '',
+      userId: userId, // ← ADDED
+    );
+  }
 }
 
 // ─────────────────────────────────────────────
-// SAMPLE DATA
+// NOTIFIERS
 // ─────────────────────────────────────────────
 
-final ValueNotifier<List<LostFoundItem>> allItemsNotifier = ValueNotifier([
-  LostFoundItem(
-    id: '1',
-    title: 'Blue Hydro Flask',
-    location: 'Faculté des Sciences',
-    timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-    status: ItemStatus.lost,
-    imagePath: 'assets/Bottle.png',
-    description: 'Blue 32oz Hydro Flask with stickers',
-    contactInfo: 'Contact: lostandfound@uni.edu',
-    color: 'Blue',
-    category: 'Water Bottle',
-  ),
-  LostFoundItem(
-    id: '2',
-    title: 'TI-84 Calculator',
-    location: 'Bibliothèque Centrale',
-    timestamp: DateTime.now().subtract(const Duration(hours: 5)),
-    status: ItemStatus.found,
-    imagePath: 'assets/calc.png',
-    description: 'Texas Instruments TI-84 Plus',
-    contactInfo: 'Claim at library front desk',
-    color: 'Grey',
-    category: 'Calculator',
-  ),
-  LostFoundItem(
-    id: '3',
-    title: 'Car Keys & Keychain',
-    location: 'Le Restaurant Universitaire',
-    timestamp: DateTime.now().subtract(const Duration(days: 1)),
-    status: ItemStatus.claimed,
-    imagePath: 'assets/keys.png',
-    description: 'Honda key with blue keychain',
-    contactInfo: 'Claimed by Mohamed A.',
-    color: 'Black',
-    category: 'Car Keys',
-  ),
-  LostFoundItem(
-    id: '4',
-    title: 'MacBook Pro Charger',
-    location: 'Département de Biologie',
-    timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-    status: ItemStatus.found,
-    imagePath: 'assets/charger.png',
-    description: 'Apple 61W USB-C Charger',
-    contactInfo: 'Available at security desk',
-    color: 'White',
-    category: 'Charger',
-  ),
-  LostFoundItem(
-    id: '5',
-    title: 'Wireless Headphones',
-    location: 'Résidence Universitaire Mansourah 5',
-    timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
-    status: ItemStatus.lost,
-    imagePath: 'assets/headphones.png',
-    description: 'Black Sony WH-1000XM4',
-    contactInfo: 'Contact: fitnesscenter@uni.edu',
-    color: 'Black',
-    category: 'Headphones',
-  ),
-  LostFoundItem(
-    id: '6',
-    title: 'Black Umbrella',
-    location: 'Faculté des Lettres et des Langues',
-    timestamp: DateTime.now().subtract(const Duration(days: 2)),
-    status: ItemStatus.found,
-    imagePath: 'assets/umbrella.png',
-    description: 'Black umbrella with wooden handle',
-    contactInfo: 'Claim at campus security',
-    color: 'Black',
-    category: 'Umbrella',
-  ),
-  LostFoundItem(
-    id: '8',
-    title: 'Samsung Earbuds Pro',
-    location: 'Faculté des Sciences Islamiques',
-    timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-    status: ItemStatus.lost,
-    imagePath: 'assets/se.png',
-    description: 'Samsung Galaxy Buds Pro in black',
-    contactInfo: 'Contact: cs.faculty@uni.edu',
-    color: 'Black',
-    category: 'Earbuds',
-  ),
-  LostFoundItem(
-    id: '9',
-    title: 'iPhone 13',
-    location: 'Le Restaurant Universitaire',
-    timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-    status: ItemStatus.found,
-    imagePath: 'assets/iphone.png',
-    description: 'iPhone 13 with blue case',
-    contactInfo: 'Contact: restaurant@uni.edu',
-    color: 'Blue',
-    category: 'Phone',
-  ),
-  LostFoundItem(
-    id: '10',
-    title: 'Student ID Card',
-    location: 'Département de Psychologie',
-    timestamp: DateTime.now().subtract(const Duration(days: 1)),
-    status: ItemStatus.lost,
-    imagePath: 'assets/id.png',
-    description: 'Student ID card - Name: John Doe',
-    contactInfo: 'Contact: security@uni.edu',
-    color: 'White',
-    category: 'Student ID Card',
-  ),
-]);
-
+final ValueNotifier<List<LostFoundItem>> allItemsNotifier = ValueNotifier([]);
 final ValueNotifier<List<LostFoundItem>> savedItemsNotifier = ValueNotifier([]);
+final ValueNotifier<bool> isLoadingNotifier = ValueNotifier(true);
+final ValueNotifier<String> errorNotifier = ValueNotifier('');
+
+final ValueNotifier<int?> loggedInUserIdNotifier = ValueNotifier<int?>(null);
+final ValueNotifier<String> loggedInUserNameNotifier = ValueNotifier<String>(
+  '',
+);
+final ValueNotifier<String> loggedInTokenNotifier = ValueNotifier<String>('');
+final ValueNotifier<String> loggedInDepartmentNotifier = ValueNotifier<String>(
+  '',
+);
 
 // ─────────────────────────────────────────────
-// CAMPUS PLACES — matches map area (Université de Tlemcen, Mansourah)
+// API SERVICE
 // ─────────────────────────────────────────────
 
-/// All pinnable places on the campus map.
-/// These match what Nominatim returns for the Mansourah campus zone
-/// (coords center: 34.8970, -1.3510).
+class TwedrliApi {
+  static const String _base = 'https://twedrliapi.linguaflo.me';
+
+  // ── Fetch all products ──────────────────────────────────────────────────
+  static Future<void> fetchProducts() async {
+    isLoadingNotifier.value = true;
+    errorNotifier.value = '';
+    try {
+      final results = await Future.wait([
+        http
+            .get(Uri.parse('$_base/products'))
+            .timeout(const Duration(seconds: 15)),
+        http
+            .get(Uri.parse('$_base/users'))
+            .timeout(const Duration(seconds: 15)),
+      ]);
+
+      final productsRes = results[0];
+      final usersRes = results[1];
+
+      // Build id → name map from users
+      final Map<int, String> userNames = {};
+      if (usersRes.statusCode == 200) {
+        final List<dynamic> userList = json.decode(usersRes.body);
+        for (final u in userList) {
+          userNames[u['id'] as int] = u['name'] ?? 'Unknown';
+        }
+      }
+
+      if (productsRes.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(productsRes.body);
+        allItemsNotifier.value = jsonList.map((e) {
+          final map = e as Map<String, dynamic>;
+          final userId = map['user_id'] as int?;
+          final name = userId != null ? (userNames[userId] ?? '') : '';
+          return LostFoundItem.fromJson(map, reporterName: name);
+        }).toList();
+      } else {
+        errorNotifier.value = 'Server error ${productsRes.statusCode}';
+      }
+    } catch (e) {
+      errorNotifier.value =
+          'Could not reach the server. Check your connection.';
+    } finally {
+      isLoadingNotifier.value = false;
+    }
+  }
+
+  // ── Delete a product by id ──────────────────────────────────────────────
+  static Future<bool> deleteProduct(String id) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$_base/products/$id'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('DELETE /products/$id → ${response.statusCode}');
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      debugPrint('DELETE error: $e');
+      return false;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+// CAMPUS PLACES
+// ─────────────────────────────────────────────
+
 final List<String> campusPlaces = [
-  // ── Facultés ──────────────────────────────
-  "Faculté des Sciences   ",
+  "Faculté des Sciences",
   "Faculté des Lettres et des Langues",
   "Faculté des Sciences Humaines et Sociales",
   "Faculté des Sciences Islamiques",
-  "Faculté de Médecine",
   "Faculté de Droit et des Sciences Politiques",
   "Faculté des Sciences Économiques, Commerciales et des Sciences de Gestion",
   "Faculté de Technologie",
-
-  // ── Départements ──────────────────────────
   "Département de Biologie",
   "Département de Chimie",
   "Département de Physique",
@@ -218,8 +237,6 @@ final List<String> campusPlaces = [
   "Département de Sociologie",
   "Département de Langue Française",
   "Département de Langue Anglaise",
-
-  // ── Bâtiments & Services ──────────────────
   "Bibliothèque Centrale",
   "Centre d'Enseignement Intensif des Langues (CEIL)",
   "Fablab Université de Tlemcen",
@@ -235,21 +252,16 @@ final List<String> campusPlaces = [
   "Amphithéâtre Principal",
   "Salle de Conférences",
   "Centre de Calcul",
-
-  // ── Résidences Universitaires ─────────────
   "Résidence Universitaire Mansourah 4 (Ahmed Mohammed)",
   "Résidence Universitaire Mansourah 5",
   "Résidence Universitaire Mansourah 7 (Ben Ahmed Abdel Kader)",
   "Résidence Universitaire Martyre Maliha Hamidou",
-
-  // ── Entrées & Espaces extérieurs ──────────
   "Entrée Principale du Campus",
   "Parking Principal",
   "Arrêt de Bus Campus",
   "Allée Centrale du Campus",
 ];
 
-// Keep campusZones as alias for backward compatibility
 final List<String> campusZones = campusPlaces;
 
 // ─────────────────────────────────────────────

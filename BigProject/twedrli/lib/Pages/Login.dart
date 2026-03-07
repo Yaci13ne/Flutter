@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:twedrli/Lists/list.dart';
 import 'package:twedrli/fabtab.dart';
 import 'package:twedrli/main.dart';
 
@@ -13,35 +16,71 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _signIn() {
-    final username = _usernameController.text.trim();
+  Future<void> _signIn() async {
+    final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (username.isEmpty || password.isEmpty) {
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your username and password.'),
-        ),
+        const SnackBar(content: Text('Please enter your email and password.')),
       );
       return;
     }
 
-    // TODO: replace with your actual auth logic
-    // On success → go to home and clear the back stack
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const FabTabs()),
-      (route) => false,
-    );
+    setState(() => _isSubmitting = true);
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('https://twedrliapi.linguaflo.me/auth/signin'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'email': email, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200) {
+        final user = data['user'] as Map<String, dynamic>;
+
+  loggedInUserIdNotifier.value = user['id'] as int;
+        loggedInUserNameNotifier.value = user['name'] as String? ?? '';
+        loggedInDepartmentNotifier.value = user['department'] as String? ?? '';
+        loggedInTokenNotifier.value = data['token'] as String? ?? '';
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const FabTabs()),
+            (route) => false,
+          );
+        }
+      } else {
+        final msg = data['message'] ?? data['error'] ?? 'Login failed.';
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not connect: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -95,9 +134,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       TwedrliInput(
-                        hint: 'Username',
-                        icon: Icons.person_outline_rounded,
-                        controller: _usernameController,
+                        hint: 'Email',
+                        icon: Icons.email_outlined,
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 14),
                       TwedrliInput(
@@ -108,13 +148,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
 
-                      // Forgot password
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
-                            // TODO: navigate to forgot password screen
-                          },
+                          onPressed: () {},
                           child: const Text(
                             'Forgot Password?',
                             style: TextStyle(color: kBlue, fontSize: 13),
@@ -123,7 +160,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
 
                       const SizedBox(height: 12),
-                      PrimaryButton(label: 'Sign In', onTap: _signIn),
+
+                      _isSubmitting
+                          ? const Center(child: CircularProgressIndicator())
+                          : PrimaryButton(label: 'Sign In', onTap: _signIn),
+
                       const SizedBox(height: 28),
                       const OrDivider(text: 'Or sign in with'),
                       const SizedBox(height: 24),

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:twedrli/Lists/list.dart';
 import 'package:twedrli/Pages/setup_profile_screen.dart';
 import 'package:twedrli/fabtab.dart';
@@ -21,8 +23,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _confirmController = TextEditingController();
 
   String? _selectedDepartment;
-
-
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -33,7 +34,7 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  void _signUp() {
+  Future<void> _signUp() async {
     final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -57,11 +58,63 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // TODO: replace with your actual auth logic (e.g. Firebase, API call)
-    // On success → navigate to SetupProfile (next step)
-  Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => SetupProfileScreen(fullName: fullName)),
-    );  }
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must be at least 6 characters.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('https://twedrliapi.linguaflo.me/auth/signup'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'name': fullName,
+              'email': email,
+              'password': password,
+              'department': _selectedDepartment,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Save userId globally so it can be used right after signup
+        loggedInUserIdNotifier.value = data['userId'] as int;
+        loggedInUserNameNotifier.value = fullName;
+
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => SetupProfileScreen(fullName: fullName),
+            ),
+          );
+        }
+      } else {
+        final msg = data['message'] ?? data['error'] ?? 'Registration failed.';
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not connect: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +126,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
           Column(
             children: [
-              // ── Top section ───────────────────────────────────────────
               Expanded(
                 flex: 4,
                 child: SafeArea(
@@ -105,7 +157,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
 
-              // ── Form ─────────────────────────────────────────────────
               Expanded(
                 flex: 9,
                 child: SingleChildScrollView(
@@ -146,7 +197,14 @@ class _SignupScreenState extends State<SignupScreen> {
                         controller: _confirmController,
                       ),
                       const SizedBox(height: 28),
-                      PrimaryButton(label: 'Create Account', onTap: _signUp),
+
+                      _isSubmitting
+                          ? const CircularProgressIndicator()
+                          : PrimaryButton(
+                              label: 'Create Account',
+                              onTap: _signUp,
+                            ),
+
                       const SizedBox(height: 28),
                       const OrDivider(text: 'Or sign in with'),
                       const SizedBox(height: 24),
@@ -200,7 +258,7 @@ class _SignupScreenState extends State<SignupScreen> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// DEPARTMENT DROPDOWN WIDGET
+// DEPARTMENT DROPDOWN
 // ════════════════════════════════════════════════════════════════════════════════
 class _DepartmentDropdown extends StatelessWidget {
   const _DepartmentDropdown({

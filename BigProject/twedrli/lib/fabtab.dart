@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:twedrli/Lists/list.dart';
 import 'package:twedrli/Pages/insert.dart';
 import 'package:twedrli/app_drawer.dart';
 import 'package:twedrli/app_drawer.dart'; // 👈 import the drawer
@@ -47,7 +48,8 @@ class _FabTabsState extends State<FabTabs> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const CreatePostScreen()),
+            MaterialPageRoute(builder: (context) => CreatePostScreen(userId: loggedInUserIdNotifier.value ?? 10),
+),
           );
         },
         backgroundColor: primaryColor,

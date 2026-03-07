@@ -1,12 +1,18 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:twedrli/Pages/Login.dart';
 import 'package:twedrli/Pages/Settings.dart';
 import 'package:twedrli/theme/theme_modifier.dart';
 import 'package:twedrli/Pages/profile.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
 
+  @override
+  State<AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<AppDrawer> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -98,7 +104,7 @@ class AppDrawer extends StatelessWidget {
             title: const Text('Help'),
             onTap: () => Navigator.pop(context),
           ),
-          const Divider(),
+        const Divider(),
           ListTile(
             leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
             title: Text(isDark ? 'Light Mode' : 'Dark Mode'),
@@ -116,8 +122,84 @@ class AppDrawer extends StatelessWidget {
                   : ThemeMode.dark;
             },
           ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout_rounded, color: Color(0xFFE74C3C)),
+            title: const Text(
+              'Sign Out',
+              style: TextStyle(
+                color: Color(0xFFE74C3C),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+onTap: () async {
+              final navigator = Navigator.of(context, rootNavigator: true);
+              Navigator.pop(context); // close drawer
+
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  title: const Text(
+                    'Sign Out',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  content: const Text('Are you sure you want to sign out?'),
+                  actionsPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.black54,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE74C3C),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Sign Out',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true) {
+                profileImageNotifier.value = null;
+                displayNameNotifier.value = '';
+                usernameNotifier.value = '';
+
+                navigator.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
+          
+          ),
         ],
       ),
     );
   }
 }
+        

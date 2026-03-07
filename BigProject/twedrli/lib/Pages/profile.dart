@@ -13,10 +13,12 @@
 // iOS: add to Info.plist:
 //   NSPhotoLibraryUsageDescription - "Select profile photo"
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:twedrli/Lists/list.dart';
+import 'package:twedrli/Pages/Login.dart';
 import 'package:twedrli/Pages/home.dart';
 
 void main() {
@@ -42,24 +44,12 @@ class MyApp extends StatelessWidget {
 
 // ─── Shared Profile Image Notifier ───────────────────────────────────────────
 
-/// A global ValueNotifier that holds the currently selected profile image.
-/// Both ProfileScreen and AppDrawer observe this to stay in sync.
 final ValueNotifier<File?> profileImageNotifier = ValueNotifier<File?>(null);
 
 // ─── Shared Username Notifier ─────────────────────────────────────────────────
 
-/// A global ValueNotifier that holds the current display name.
-/// Both ProfileScreen and AppDrawer observe this to stay in sync.
-final ValueNotifier<String> displayNameNotifier = ValueNotifier<String>(
-  'Alex Rivers',
-
-
-  
-);
-
-final ValueNotifier<String> usernameNotifier = ValueNotifier<String>(
-  '@arivers_24',
-);
+final ValueNotifier<String> displayNameNotifier = ValueNotifier<String>('');
+final ValueNotifier<String> usernameNotifier = ValueNotifier<String>('');
 
 // ─── Data Models ─────────────────────────────────────────────────────────────
 
@@ -80,29 +70,11 @@ class BadgeData {
 }
 
 class ItemData {
+  final String id;
   final String title;
   final String location;
   final String imagePath;
-  ItemData(this.title, this.location, this.imagePath);
-}
-
-class ReportData {
-  final String title;
-  final String location;
-  final String date;
-  final String status;
-  final Color statusColor;
-  final IconData icon;
-  final Color iconColor;
-  ReportData(
-    this.title,
-    this.location,
-    this.date,
-    this.status,
-    this.statusColor,
-    this.icon,
-    this.iconColor,
-  );
+  ItemData(this.id, this.title, this.location, this.imagePath);
 }
 
 class NavItem {
@@ -112,7 +84,7 @@ class NavItem {
   NavItem(this.icon, this.activeIcon, this.label);
 }
 
-// ─── Global Data ─────────────────────────────────────────────────────────────
+// ─── Global Badge Data ────────────────────────────────────────────────────────
 
 final List<BadgeData> allBadges = [
   BadgeData(
@@ -162,215 +134,138 @@ final List<BadgeData> allBadges = [
     Icons.explore_outlined,
     const Color(0xFFE67E22),
     'Found 50+ lost items',
-    isEarned: false,
   ),
   BadgeData(
     'Community Guardian',
     Icons.shield_outlined,
     const Color(0xFF3498DB),
     'Reported 20+ suspicious activities',
-    isEarned: false,
   ),
   BadgeData(
     'Weekend Warrior',
     Icons.weekend_outlined,
     const Color(0xFFE74C3C),
     'Active on weekends for 3 months',
-    isEarned: false,
   ),
   BadgeData(
     'Night Owl',
     Icons.nights_stay_outlined,
     const Color(0xFF8E44AD),
     'Made 15+ reports after 10 PM',
-    isEarned: false,
   ),
   BadgeData(
     'Library Legend',
     Icons.local_library_outlined,
     const Color(0xFF27AE60),
     'Most active in library zone',
-    isEarned: false,
   ),
   BadgeData(
     'Gym Hero',
     Icons.fitness_center_outlined,
     const Color(0xFF2980B9),
     'Recovered 10+ items at the gym',
-    isEarned: false,
   ),
   BadgeData(
     'Cafeteria King',
     Icons.restaurant_outlined,
     const Color(0xFFF39C12),
     'Found 8+ items in cafeteria',
-    isEarned: false,
   ),
   BadgeData(
     'Tech Genius',
     Icons.computer_outlined,
     const Color(0xFF16A085),
     'Helped recover 12+ electronic devices',
-    isEarned: false,
   ),
   BadgeData(
     'Key Master',
     Icons.vpn_key_outlined,
     const Color(0xFFD35400),
     'Returned 15+ sets of keys',
-    isEarned: false,
   ),
   BadgeData(
     'Wallet Warrior',
     Icons.account_balance_wallet_outlined,
     const Color(0xFF2C3E50),
     'Returned 10+ wallets with all contents',
-    isEarned: false,
   ),
   BadgeData(
     'Phone Finder',
     Icons.phone_android_outlined,
     const Color(0xFF7F8C8D),
     'Helped recover 8+ phones',
-    isEarned: false,
   ),
   BadgeData(
     'Backpack Buddy',
     Icons.backpack_outlined,
     const Color(0xFFBDC3C7),
     'Found 20+ backpacks',
-    isEarned: false,
   ),
   BadgeData(
     'ID Expert',
     Icons.credit_card_outlined,
     const Color(0xFF95A5A6),
     'Returned 25+ student IDs',
-    isEarned: false,
   ),
   BadgeData(
     'Water Bottle Collector',
     Icons.local_drink_outlined,
     const Color(0xFF1ABC9C),
     'Found 30+ water bottles',
-    isEarned: false,
   ),
   BadgeData(
     'Umbrella Saver',
     Icons.beach_access_outlined,
     const Color(0xFF3498DB),
     'Returned 15+ umbrellas on rainy days',
-    isEarned: false,
   ),
   BadgeData(
     'Charger Champion',
     Icons.battery_charging_full_outlined,
     const Color(0xFF9B59B6),
     'Found 10+ phone chargers',
-    isEarned: false,
   ),
   BadgeData(
     'Glasses Guardian',
     Icons.remove_red_eye_outlined,
     const Color(0xFF34495E),
     'Returned 8+ pairs of glasses',
-    isEarned: false,
   ),
   BadgeData(
     'Notebook Ninja',
     Icons.note_outlined,
     const Color(0xFFE67E22),
     'Found 25+ notebooks with class notes',
-    isEarned: false,
   ),
   BadgeData(
     'Calculator Crusader',
     Icons.calculate_outlined,
     const Color(0xFF2ECC71),
     'Returned 12+ scientific calculators',
-    isEarned: false,
   ),
   BadgeData(
     'Headphone Hero',
     Icons.headphones_outlined,
     const Color(0xFFE74C3C),
     'Found 20+ pairs of headphones',
-    isEarned: false,
   ),
   BadgeData(
     'Flash Drive Finder',
     Icons.save_outlined,
     const Color(0xFF3498DB),
     'Returned 18+ USB drives with data',
-    isEarned: false,
   ),
   BadgeData(
     'Watch Wizard',
     Icons.watch_outlined,
     const Color(0xFFF1C40F),
     'Found 7+ watches',
-    isEarned: false,
   ),
   BadgeData(
     'Jewelry Journalist',
     Icons.diamond_outlined,
     const Color(0xFFE91E63),
     'Returned 5+ pieces of jewelry',
-    isEarned: false,
-  ),
-];
-
-final List<ItemData> savedItems = [
-  ItemData('Car Keys (Toyota)', 'Student Union', 'assets/keys.png'),
-  ItemData('HydroFlask Blue', 'Gym Locker', 'assets/Bottle.png'),
-  ItemData('Black Umbrella', 'Science Hall', 'assets/umbrella.png'),
-];
-
-final List<ReportData> myReports = [
-  ReportData(
-    'Lost AirPods Pro',
-    'Engineering Block B',
-    'Feb 20, 2025',
-    'Searching',
-    const Color(0xFFF5A623),
-    Icons.headphones,
-    const Color(0xFFF5A623),
-  ),
-  ReportData(
-    'Found: Student ID',
-    'Cafeteria',
-    'Feb 18, 2025',
-    'Returned',
-    const Color(0xFF2ECC71),
-    Icons.badge_outlined,
-    const Color(0xFF2ECC71),
-  ),
-  ReportData(
-    'Lost Laptop Bag',
-    'Library Room 3',
-    'Feb 15, 2025',
-    'Recovered',
-    const Color(0xFF2979FF),
-    Icons.laptop_outlined,
-    const Color(0xFF2979FF),
-  ),
-  ReportData(
-    'Found: Water Bottle',
-    'Sports Complex',
-    'Feb 10, 2025',
-    'Returned',
-    const Color(0xFF2ECC71),
-    Icons.local_drink_outlined,
-    const Color(0xFF00BCD4),
-  ),
-  ReportData(
-    'Lost Calculator',
-    'Math Dept.',
-    'Feb 5, 2025',
-    'Closed',
-    Colors.black38,
-    Icons.calculate_outlined,
-    Colors.black38,
   ),
 ];
 
@@ -386,8 +281,17 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedNavIndex = 4;
   bool _savedItemsSelected = true;
-  final Set<int> _savedIndices = {0, 1, 2, 3};
   final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    if (loggedInUserNameNotifier.value.isNotEmpty) {
+      displayNameNotifier.value = loggedInUserNameNotifier.value;
+      usernameNotifier.value =
+          '@${loggedInUserNameNotifier.value.toLowerCase().replaceAll(' ', '_')}';
+    }
+  }
 
   int get earnedBadgesCount =>
       allBadges.where((badge) => badge.isEarned).length;
@@ -402,7 +306,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  /// Shows an edit dialog for the display name.
   Future<void> _editDisplayName() async {
     final controller = TextEditingController(text: displayNameNotifier.value);
     final theme = Theme.of(context);
@@ -516,13 +419,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _toggleSaved(int index) {
-    setState(() {
-      if (_savedIndices.contains(index)) {
-        _savedIndices.remove(index);
-      } else {
-        _savedIndices.add(index);
-      }
-    });
+    final saved = savedItemsNotifier.value;
+    final item = saved[index];
+    savedItemsNotifier.value = saved.where((s) => s.id != item.id).toList();
   }
 
   void _openAllBadges() {
@@ -530,6 +429,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context,
       MaterialPageRoute(builder: (_) => const AllBadgesScreen()),
     );
+  }
+
+  // ── Get current user's posts from the global list ─────────────────────────
+  List<LostFoundItem> _getMyPosts(List<LostFoundItem> allItems) {
+    final myId = loggedInUserIdNotifier.value;
+    if (myId == null) return [];
+    return allItems.where((item) => item.userId == myId).toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
   @override
@@ -556,7 +463,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 12),
                     _buildUserInfo(theme, isDark),
                     const SizedBox(height: 20),
-                    _buildStats(isDark),
+                    _buildStats(),
                     const SizedBox(height: 24),
                     _buildBadges(isDark, textColor, secondaryTextColor),
                     const SizedBox(height: 16),
@@ -602,7 +509,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: theme.colorScheme.onSurface,
             ),
           ),
-
+          GestureDetector(
+            onTap: () => _confirmSignOut(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEEEE),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.logout_rounded,
+                    size: 16,
+                    color: Color(0xFFE74C3C),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Sign Out',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFE74C3C),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -664,7 +598,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildUserInfo(ThemeData theme, bool isDark) {
     return Column(
       children: [
-        // ── Tappable display name row ──────────────────────────────────────
         GestureDetector(
           onTap: _editDisplayName,
           child: ValueListenableBuilder<String>(
@@ -700,9 +633,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
         ),
-        // ─────────────────────────────────────────────────────────────────
         const SizedBox(height: 4),
-ValueListenableBuilder<String>(
+        ValueListenableBuilder<String>(
           valueListenable: usernameNotifier,
           builder: (context, username, _) {
             return Text(
@@ -716,41 +648,59 @@ ValueListenableBuilder<String>(
           },
         ),
         const SizedBox(height: 4),
-        Text(
-          'Computer Science Dept.',
-          style: TextStyle(
-            fontSize: 13,
-            color: isDark ? Colors.grey[400] : Colors.black54,
-          ),
+        ValueListenableBuilder<String>(
+          valueListenable: loggedInDepartmentNotifier,
+          builder: (context, dept, _) {
+            return Text(
+              dept.isNotEmpty ? dept : '',
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.grey[400] : Colors.black54,
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildStats(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
-              '24',
-              'POSTS',
-              isDark ? const Color(0xFF1E3A5F) : const Color(0xFFE8F4FF),
-              const Color(0xFF2979FF),
-            ),
+  // ── Stats now use real data from allItemsNotifier ─────────────────────────
+  Widget _buildStats() {
+    return ValueListenableBuilder<List<LostFoundItem>>(
+      valueListenable: allItemsNotifier,
+      builder: (context, allItems, _) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final myPosts = _getMyPosts(allItems);
+        final postCount = myPosts.length;
+        final recoveryCount = myPosts
+            .where((i) => i.status == ItemStatus.claimed)
+            .length;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  '$postCount',
+                  'POSTS',
+                  isDark ? const Color(0xFF1E3A5F) : const Color(0xFFE8F4FF),
+                  const Color(0xFF2979FF),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  '$recoveryCount',
+                  'RECOVERIES',
+                  isDark ? const Color(0xFF1E3A2E) : const Color(0xFFEAF9F0),
+                  const Color(0xFF2ECC71),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              '12',
-              'RECOVERIES',
-              isDark ? const Color(0xFF1E3A2E) : const Color(0xFFEAF9F0),
-              const Color(0xFF2ECC71),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1010,7 +960,12 @@ ValueListenableBuilder<String>(
             itemBuilder: (context, index) {
               final item = saved[index];
               return _buildItemCard(
-                ItemData(item.title, item.location, item.imagePath),
+                ItemData(
+                  item.id,
+                  item.title,
+                  item.locationDisplay,
+                  item.imagePath,
+                ),
                 index,
                 isDark,
                 cardColor,
@@ -1034,7 +989,66 @@ ValueListenableBuilder<String>(
     Color textColor,
     Color secondaryTextColor,
   ) {
-    final isSaved = _savedIndices.contains(index);
+    Widget buildImage() {
+      bool isBase64(String s) {
+        if (s.length % 4 != 0) return false;
+        return RegExp(r'^[A-Za-z0-9+/]*={0,2}$').hasMatch(s);
+      }
+
+      Widget placeholder() => Container(
+        color: isDark ? Colors.grey[800] : const Color(0xFFF0F0F0),
+        child: Icon(
+          Icons.image_not_supported_outlined,
+          color: isDark ? Colors.grey[600] : Colors.grey,
+          size: 30,
+        ),
+      );
+
+      if (item.imagePath.isEmpty) return placeholder();
+
+      if (item.imagePath.startsWith('http://') ||
+          item.imagePath.startsWith('https://')) {
+        return Image.network(
+          item.imagePath,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder(),
+          loadingBuilder: (_, child, progress) =>
+              progress == null ? child : placeholder(),
+        );
+      }
+
+      if (item.imagePath.startsWith('data:image') || isBase64(item.imagePath)) {
+        try {
+          final bytes = base64Decode(
+            item.imagePath.contains(',')
+                ? item.imagePath.split(',').last
+                : item.imagePath,
+          );
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => placeholder(),
+          );
+        } catch (_) {
+          return placeholder();
+        }
+      }
+
+      if (item.imagePath.startsWith('assets/')) {
+        return Image.asset(
+          item.imagePath,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder(),
+        );
+      }
+
+      return Image.file(
+        File(item.imagePath),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => placeholder(),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1043,32 +1057,10 @@ ValueListenableBuilder<String>(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  item.imagePath,
+                child: SizedBox(
                   width: double.infinity,
                   height: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: isDark ? Colors.grey[800] : const Color(0xFFF0F0F0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.image_not_supported_outlined,
-                          color: isDark ? Colors.grey[600] : Colors.grey,
-                          size: 30,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Image not found',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isDark ? Colors.grey[600] : Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  child: buildImage(),
                 ),
               ),
               Positioned(
@@ -1083,20 +1075,11 @@ ValueListenableBuilder<String>(
                     decoration: BoxDecoration(
                       color: isDark ? Colors.grey[800] : Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isDark
-                              ? Colors.transparent
-                              : Colors.white.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
                     ),
-                    child: Icon(
-                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                    child: const Icon(
+                      Icons.bookmark,
                       size: 18,
-                      color: const Color(0xFF2196F3),
+                      color: Color(0xFF2196F3),
                     ),
                   ),
                 ),
@@ -1138,6 +1121,7 @@ ValueListenableBuilder<String>(
     );
   }
 
+  // ── My Reports: show real posts by this user, no hardcoded defaults ────────
   Widget _buildMyReports(
     bool isDark,
     Color cardColor,
@@ -1145,33 +1129,102 @@ ValueListenableBuilder<String>(
     Color textColor,
     Color? secondaryTextColor,
   ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: myReports
-            .map(
-              (r) => _buildReportCard(
-                r,
-                isDark,
-                cardColor,
-                borderColor,
-                textColor,
-                secondaryTextColor!,
+    return ValueListenableBuilder<List<LostFoundItem>>(
+      valueListenable: allItemsNotifier,
+      builder: (context, allItems, _) {
+        final myPosts = _getMyPosts(allItems);
+
+        if (myPosts.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.inbox_outlined,
+                    size: 64,
+                    color: isDark ? Colors.grey[700] : Colors.grey[400],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No reports yet.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey[500] : Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'When you post a lost or found item,\nit will appear here.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[600] : Colors.black38,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
-            )
-            .toList(),
-      ),
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: myPosts
+                .map(
+                  (item) => _buildRealReportCard(
+                    item,
+                    isDark,
+                    cardColor,
+                    borderColor,
+                    textColor,
+                    secondaryTextColor!,
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildReportCard(
-    ReportData report,
+  // ── Card for a real LostFoundItem ─────────────────────────────────────────
+  Widget _buildRealReportCard(
+    LostFoundItem report,
     bool isDark,
     Color cardColor,
     Color borderColor,
     Color textColor,
     Color secondaryTextColor,
   ) {
+    // Map status to color and icon
+    Color statusColor;
+    IconData statusIcon;
+    String statusLabel;
+
+    switch (report.status) {
+      case ItemStatus.lost:
+        statusColor = const Color(0xFFE53935);
+        statusIcon = Icons.error_outline;
+        statusLabel = 'Lost';
+        break;
+      case ItemStatus.found:
+        statusColor = const Color(0xFF1E88E5);
+        statusIcon = Icons.search_outlined;
+        statusLabel = 'Found';
+        break;
+      case ItemStatus.claimed:
+        statusColor = const Color(0xFF43A047);
+        statusIcon = Icons.check_circle_outline;
+        statusLabel = 'Claimed';
+        break;
+    }
+
+    // Icon based on category
+    IconData categoryIcon = _iconForReport(report.category);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -1189,14 +1242,24 @@ ValueListenableBuilder<String>(
       ),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: report.iconColor.withOpacity(isDark ? 0.2 : 0.12),
-              borderRadius: BorderRadius.circular(12),
+          // ── Thumbnail or icon ──
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: report.imagePath.isNotEmpty
+                  ? _buildReportThumbnail(
+                      report.imagePath,
+                      isDark,
+                      categoryIcon,
+                      statusColor,
+                    )
+                  : Container(
+                      color: statusColor.withOpacity(isDark ? 0.2 : 0.12),
+                      child: Icon(categoryIcon, color: statusColor, size: 24),
+                    ),
             ),
-            child: Icon(report.icon, color: report.iconColor, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1220,15 +1283,22 @@ ValueListenableBuilder<String>(
                       color: secondaryTextColor,
                     ),
                     const SizedBox(width: 2),
-                    Text(
-                      report.location,
-                      style: TextStyle(fontSize: 11, color: secondaryTextColor),
+                    Expanded(
+                      child: Text(
+                        report.locationDisplay,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: secondaryTextColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  report.date,
+                  report.timeAgo,
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark ? Colors.grey[600] : Colors.black38,
@@ -1237,24 +1307,140 @@ ValueListenableBuilder<String>(
               ],
             ),
           ),
+          // ── Status chip ──
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: report.statusColor.withOpacity(isDark ? 0.2 : 0.12),
+              color: statusColor.withOpacity(isDark ? 0.2 : 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              report.status,
+              statusLabel,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: report.statusColor,
+                color: statusColor,
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildReportThumbnail(
+    String imagePath,
+    bool isDark,
+    IconData fallbackIcon,
+    Color iconColor,
+  ) {
+    Widget placeholder() => Container(
+      color: iconColor.withOpacity(isDark ? 0.2 : 0.12),
+      child: Icon(fallbackIcon, color: iconColor, size: 24),
+    );
+
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return Image.network(
+        imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => placeholder(),
+        loadingBuilder: (_, child, progress) =>
+            progress == null ? child : placeholder(),
+      );
+    }
+
+    if (imagePath.startsWith('data:image')) {
+      try {
+        final bytes = base64Decode(imagePath.split(',').last);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder(),
+        );
+      } catch (_) {
+        return placeholder();
+      }
+    }
+
+    return placeholder();
+  }
+
+  IconData _iconForReport(String category) {
+    switch (category.toLowerCase()) {
+      case 'electronics':
+        return Icons.devices;
+      case 'fashion':
+        return Icons.checkroom;
+      case 'home & living':
+        return Icons.chair;
+      case 'beauty':
+        return Icons.face;
+      case 'sport':
+        return Icons.sports_soccer;
+      case 'books':
+        return Icons.menu_book;
+      default:
+        return Icons.category;
+    }
+  }
+
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Sign Out',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        content: const Text('Are you sure you want to sign out?'),
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black54,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE74C3C),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Sign Out',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      profileImageNotifier.value = null;
+      displayNameNotifier.value = '';
+      usernameNotifier.value = '';
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
   }
 }
 

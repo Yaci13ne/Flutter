@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:twedrli/Lists/list.dart';
 import 'package:twedrli/Pages/item_detail_screen.dart';
@@ -16,16 +19,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
   String? selectedZone;
   String? selectedType;
 
-  // ─── Fuzzy location match ─────────────────────────────────────────────────
-  /// Returns true if the item's location "contains" the selected zone or
-  /// vice-versa, case-insensitively and accent-insensitively.
-  bool _locationMatches(String itemLocation, String zone) {
-    final a = _normalize(itemLocation);
-    final b = _normalize(zone);
-    return a.contains(b) || b.contains(a);
-  }
-
-  /// Strip accents and lowercase so "Faculté" == "faculte".
+  // ─── Normalize string (remove accents, lowercase) ────────────────────────
   String _normalize(String s) {
     const accents = 'àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿœ';
     const replaced = 'aaaaaaaceeeeiiiidnoooooouuuuybyoe';
@@ -36,22 +30,102 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
     return result;
   }
 
+  // ─── Fuzzy location match ─────────────────────────────────────────────────
+  bool _locationMatches(String itemLocation, String zone) {
+    final a = _normalize(itemLocation);
+    final b = _normalize(zone);
+    return a.contains(b) || b.contains(a);
+  }
+
+  // ─── Category matching: item.category is API value (e.g. "Electronics")
+  //     selectedType is display label (e.g. "Phone", "Laptop")
+  //     We match by checking if the label maps to the same API category
+  String _labelToApiCategory(String label) {
+    const map = {
+      'Phone': 'Electronics',
+      'Laptop': 'Electronics',
+      'Tablet': 'Electronics',
+      'Smart Watch': 'Electronics',
+      'Headphones': 'Electronics',
+      'Earbuds': 'Electronics',
+      'AirPods': 'Electronics',
+      'Charger': 'Electronics',
+      'Power Bank': 'Electronics',
+      'USB Flash Drive': 'Electronics',
+      'External Hard Drive': 'Electronics',
+      'Calculator': 'Electronics',
+      'Graphing Calculator': 'Electronics',
+      'Camera': 'Electronics',
+      'Microphone': 'Electronics',
+      'Bluetooth Speaker': 'Electronics',
+      'Presentation Clicker': 'Electronics',
+      'Tripod': 'Electronics',
+      'USB Cable': 'Electronics',
+      'Mouse': 'Electronics',
+      'Keyboard': 'Electronics',
+      'Scientific Instrument': 'Electronics',
+      'Wallet': 'Fashion',
+      'Purse': 'Fashion',
+      'Backpack': 'Fashion',
+      'Handbag': 'Fashion',
+      'Jacket': 'Fashion',
+      'Sweater': 'Fashion',
+      'Hoodie': 'Fashion',
+      'Scarf': 'Fashion',
+      'Glasses': 'Fashion',
+      'Sunglasses': 'Fashion',
+      'Lab Coat': 'Fashion',
+      'Gym Bag': 'Sport',
+      'Football': 'Sport',
+      'Sports Equipment': 'Sport',
+      'Notebook': 'Books',
+      'Binder': 'Books',
+      'Textbook': 'Books',
+      'Lab Manual': 'Books',
+      'Folder': 'Books',
+      'Project Report': 'Books',
+      'Diary': 'Books',
+      'Pen': 'Books',
+      'Pencil Case': 'Books',
+      'Makeup Bag': 'Beauty',
+      'Water Bottle': 'Home & Living',
+      'Lunch Box': 'Home & Living',
+      'Umbrella': 'Home & Living',
+      'Medication': 'Home & Living',
+      'Student ID Card': 'Other',
+      'National ID Card': 'Other',
+      'Passport': 'Other',
+      'Driver\'s License': 'Other',
+      'Car Keys': 'Other',
+      'House Keys': 'Other',
+      'Locker Key': 'Other',
+      'Access Card': 'Other',
+    };
+    return map[label] ?? 'Other';
+  }
+
   List<LostFoundItem> get filteredItems {
     return allItemsNotifier.value.where((item) {
+      // Search query
       final matchesSearch =
           searchQuery.isEmpty ||
           item.title.toLowerCase().contains(searchQuery.toLowerCase()) ||
-          item.description.toLowerCase().contains(searchQuery.toLowerCase());
+          item.description.toLowerCase().contains(searchQuery.toLowerCase()) ||
+          item.category.toLowerCase().contains(searchQuery.toLowerCase());
 
+      // Type filter: match by API category
       final matchesType =
           selectedType == null ||
-          item.category.toLowerCase() == selectedType!.toLowerCase();
+          item.category.toLowerCase() ==
+              _labelToApiCategory(selectedType!).toLowerCase();
 
-      // ← fuzzy match instead of exact equality
+      // Zone filter: fuzzy match against locationDisplay or raw location
       final matchesZone =
           selectedZone == null ||
-          _locationMatches(item.location, selectedZone!);
+          _locationMatches(item.location, selectedZone!) ||
+          _locationMatches(item.locationDisplay, selectedZone!);
 
+      // Color filter
       final matchesColor =
           isAllColorsSelected ||
           (selectedColor != null &&
@@ -59,7 +133,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                   _colorToString(selectedColor!).toLowerCase());
 
       return matchesSearch && matchesType && matchesZone && matchesColor;
-    }).toList();
+    }).toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
   @override
@@ -67,7 +141,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
-    final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey;
+    final secondaryTextColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
     final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final borderColor = isDark ? Colors.grey[800]! : const Color(0xFFD6DCE5);
     final inputBgColor = isDark ? Colors.grey[900]! : const Color(0xFFE9EDF2);
@@ -83,7 +157,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
               children: [
                 const SizedBox(height: 10),
 
-                /// HEADER
+                // ── Header ──
                 Row(
                   children: [
                     Icon(Icons.search, color: theme.colorScheme.primary),
@@ -112,6 +186,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
                 const SizedBox(height: 20),
 
+                // ── Search Bar ──
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   height: 50,
@@ -128,9 +203,8 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextField(
-                          onChanged: (value) {
-                            setState(() => searchQuery = value);
-                          },
+                          onChanged: (value) =>
+                              setState(() => searchQuery = value),
                           style: TextStyle(color: textColor),
                           decoration: InputDecoration(
                             hintText:
@@ -142,12 +216,22 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                           ),
                         ),
                       ),
+                      if (searchQuery.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => setState(() => searchQuery = ''),
+                          child: Icon(
+                            Icons.close,
+                            size: 18,
+                            color: isDark ? Colors.grey[500] : Colors.grey,
+                          ),
+                        ),
                     ],
                   ),
                 ),
+
                 const SizedBox(height: 25),
 
-                /// ADVANCED FILTERS
+                // ── Advanced Filters Header ──
                 Row(
                   children: [
                     Text(
@@ -160,15 +244,13 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                     ),
                     const Spacer(),
                     GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          selectedType = null;
-                          selectedZone = null;
-                          isAllColorsSelected = true;
-                          selectedColor = null;
-                          searchQuery = "";
-                        });
-                      },
+                      onTap: () => setState(() {
+                        selectedType = null;
+                        selectedZone = null;
+                        isAllColorsSelected = true;
+                        selectedColor = null;
+                        searchQuery = "";
+                      }),
                       child: Text(
                         "Clear All",
                         style: TextStyle(
@@ -182,6 +264,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
                 const SizedBox(height: 20),
 
+                // ── Object Type ──
                 Text(
                   "Object Type",
                   style: TextStyle(
@@ -190,15 +273,17 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                buildObjectTypeField(
+                _buildObjectTypeField(
                   context,
                   isDark,
                   borderColor,
                   textColor,
-                  secondaryTextColor!,
+                  secondaryTextColor,
                 ),
+
                 const SizedBox(height: 18),
 
+                // ── Campus Zone ──
                 Text(
                   "Campus Zone",
                   style: TextStyle(
@@ -207,15 +292,17 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                buildCampusZoneField(
+                _buildCampusZoneField(
                   context,
                   isDark,
                   borderColor,
                   textColor,
                   secondaryTextColor,
                 ),
+
                 const SizedBox(height: 18),
 
+                // ── Date Row ──
                 Row(
                   children: [
                     Expanded(
@@ -230,7 +317,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          DateField(isDark: isDark, borderColor: borderColor),
+                          _DateField(isDark: isDark, borderColor: borderColor),
                         ],
                       ),
                     ),
@@ -247,7 +334,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          DateField(isDark: isDark, borderColor: borderColor),
+                          _DateField(isDark: isDark, borderColor: borderColor),
                         ],
                       ),
                     ),
@@ -256,6 +343,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
                 const SizedBox(height: 20),
 
+                // ── Color ──
                 Text(
                   "Item Color",
                   style: TextStyle(
@@ -264,24 +352,23 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    buildAllColorsDot(),
-                    buildColorDot(Colors.black, isDark),
-                    buildColorDot(const Color(0xFFD6D6D6), isDark),
-                    buildColorDot(const Color(0xFF2E63D6), isDark),
-                    buildColorDot(const Color(0xFFE21E1E), isDark),
-                    buildColorDot(const Color(0xFFF3C200), isDark),
-                    buildColorDot(const Color(0xFF1B9E3F), isDark),
-                    buildColorDot(const Color(0xFF8A2BE2), isDark),
+                    _buildAllColorsDot(),
+                    _buildColorDot(Colors.black, isDark),
+                    _buildColorDot(const Color(0xFFD6D6D6), isDark),
+                    _buildColorDot(const Color(0xFF2E63D6), isDark),
+                    _buildColorDot(const Color(0xFFE21E1E), isDark),
+                    _buildColorDot(const Color(0xFFF3C200), isDark),
+                    _buildColorDot(const Color(0xFF1B9E3F), isDark),
+                    _buildColorDot(const Color(0xFF8A2BE2), isDark),
                   ],
                 ),
 
                 const SizedBox(height: 25),
 
-                /// APPLY BUTTON
+                // ── Apply Button ──
                 GestureDetector(
                   onTap: () => setState(() {}),
                   child: Container(
@@ -305,49 +392,88 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
                 const SizedBox(height: 30),
 
-                /// MATCHING ITEMS HEADER
-                Row(
-                  children: [
-                    Text(
-                      "Matching Items (${filteredItems.length})",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: textColor,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      "Sorted by: Newest",
-                      style: TextStyle(color: secondaryTextColor),
-                    ),
-                  ],
+                // ── Results Header ──
+                ValueListenableBuilder(
+                  valueListenable: allItemsNotifier,
+                  builder: (context, value, child) {
+                    return Row(
+                      children: [
+                        Text(
+                          "Matching Items (${filteredItems.length})",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: textColor,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          "Sorted by: Newest",
+                          style: TextStyle(color: secondaryTextColor),
+                        ),
+                      ],
+                    );
+                  }
                 ),
 
                 const SizedBox(height: 20),
 
-                /// ITEMS GRID
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 20,
-                    crossAxisSpacing: 20,
-                    childAspectRatio: 0.72,
-                  ),
-                  itemCount: filteredItems.length,
-                  itemBuilder: (context, index) {
-                    final item = filteredItems[index];
-                    return ItemCard(
-                      item: item,
-                      isDark: isDark,
-                      cardColor: cardColor,
-                      textColor: textColor,
-                      secondaryTextColor: secondaryTextColor,
-                    );
-                  },
+                // ── Items Grid ──
+                ValueListenableBuilder(
+                  valueListenable: allItemsNotifier,
+                  builder: (context, value, child) {
+                    return filteredItems.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 40),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.search_off,
+                                    size: 64,
+                                    color: isDark
+                                        ? Colors.grey[700]
+                                        : Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    "No items match your filters",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: isDark
+                                          ? Colors.grey[500]
+                                          : Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  mainAxisSpacing: 20,
+                                  crossAxisSpacing: 20,
+                                  childAspectRatio: 0.72,
+                                ),
+                            itemCount: filteredItems.length,
+                            itemBuilder: (context, index) {
+                              final item = filteredItems[index];
+                              return _ItemCard(
+                                item: item,
+                                isDark: isDark,
+                                cardColor: cardColor,
+                                textColor: textColor,
+                                secondaryTextColor: secondaryTextColor,
+                              );
+                            },
+                          );
+                  }
                 ),
+
                 const SizedBox(height: 90),
               ],
             ),
@@ -359,7 +485,7 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
   // ─── Object Type Field ────────────────────────────────────────────────────
 
-  Widget buildObjectTypeField(
+  Widget _buildObjectTypeField(
     BuildContext context,
     bool isDark,
     Color borderColor,
@@ -386,7 +512,13 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                 ),
               ),
             ),
-            Icon(Icons.keyboard_arrow_down, color: secondaryTextColor),
+            if (selectedType != null)
+              GestureDetector(
+                onTap: () => setState(() => selectedType = null),
+                child: Icon(Icons.close, size: 16, color: secondaryTextColor),
+              )
+            else
+              Icon(Icons.keyboard_arrow_down, color: secondaryTextColor),
           ],
         ),
       ),
@@ -498,12 +630,12 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
   // ─── Campus Zone Field ────────────────────────────────────────────────────
 
-  Widget buildCampusZoneField(
+  Widget _buildCampusZoneField(
     BuildContext context,
     bool isDark,
     Color borderColor,
     Color textColor,
-    Color? secondaryTextColor,
+    Color secondaryTextColor,
   ) {
     return GestureDetector(
       onTap: () => _openZoneSelector(context, isDark),
@@ -523,9 +655,17 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
                 style: TextStyle(
                   color: selectedZone == null ? secondaryTextColor : textColor,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            Icon(Icons.keyboard_arrow_down, color: secondaryTextColor),
+            if (selectedZone != null)
+              GestureDetector(
+                onTap: () => setState(() => selectedZone = null),
+                child: Icon(Icons.close, size: 16, color: secondaryTextColor),
+              )
+            else
+              Icon(Icons.keyboard_arrow_down, color: secondaryTextColor),
           ],
         ),
       ),
@@ -635,14 +775,12 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
   // ─── Color Widgets ────────────────────────────────────────────────────────
 
-  Widget buildAllColorsDot() {
+  Widget _buildAllColorsDot() {
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          isAllColorsSelected = true;
-          selectedColor = null;
-        });
-      },
+      onTap: () => setState(() {
+        isAllColorsSelected = true;
+        selectedColor = null;
+      }),
       child: Container(
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
@@ -688,15 +826,13 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
     );
   }
 
-  Widget buildColorDot(Color color, bool isDark) {
+  Widget _buildColorDot(Color color, bool isDark) {
     final isSelected = selectedColor == color;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedColor = color;
-          isAllColorsSelected = false;
-        });
-      },
+      onTap: () => setState(() {
+        selectedColor = color;
+        isAllColorsSelected = false;
+      }),
       child: Container(
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
@@ -725,24 +861,24 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
   }
 
   String _colorToString(Color color) {
-    if (color == Colors.black) return "black";
-    if (color == const Color(0xFFD6D6D6)) return "white";
-    if (color == const Color(0xFF2E63D6)) return "blue";
-    if (color == const Color(0xFFE21E1E)) return "red";
-    if (color == const Color(0xFFF3C200)) return "yellow";
-    if (color == const Color(0xFF1B9E3F)) return "green";
-    if (color == const Color(0xFF8A2BE2)) return "purple";
+    if (color == Colors.black) return "Black";
+    if (color == const Color(0xFFD6D6D6)) return "White";
+    if (color == const Color(0xFF2E63D6)) return "Blue";
+    if (color == const Color(0xFFE21E1E)) return "Red";
+    if (color == const Color(0xFFF3C200)) return "Yellow";
+    if (color == const Color(0xFF1B9E3F)) return "Green";
+    if (color == const Color(0xFF8A2BE2)) return "Purple";
     return "";
   }
 }
 
 // ─── Date Field ───────────────────────────────────────────────────────────────
 
-class DateField extends StatelessWidget {
+class _DateField extends StatelessWidget {
   final bool isDark;
   final Color borderColor;
 
-  const DateField({super.key, required this.isDark, required this.borderColor});
+  const _DateField({required this.isDark, required this.borderColor});
 
   @override
   Widget build(BuildContext context) {
@@ -775,15 +911,14 @@ class DateField extends StatelessWidget {
 
 // ─── Item Card ────────────────────────────────────────────────────────────────
 
-class ItemCard extends StatelessWidget {
+class _ItemCard extends StatelessWidget {
   final LostFoundItem item;
   final bool isDark;
   final Color cardColor;
   final Color textColor;
   final Color secondaryTextColor;
 
-  const ItemCard({
-    super.key,
+  const _ItemCard({
     required this.item,
     required this.isDark,
     required this.cardColor,
@@ -791,11 +926,105 @@ class ItemCard extends StatelessWidget {
     required this.secondaryTextColor,
   });
 
-  String getTimeAgo(DateTime time) {
-    final difference = DateTime.now().difference(time);
-    if (difference.inMinutes < 60) return "${difference.inMinutes} min ago";
-    if (difference.inHours < 24) return "${difference.inHours} hours ago";
-    return "${difference.inDays} days ago";
+  // ─── Smart image widget (network / base64 / file / placeholder) ───────────
+  Widget _buildImage() {
+    bool isBase64(String s) {
+      if (s.length % 4 != 0) return false;
+      return RegExp(r'^[A-Za-z0-9+/]*={0,2}$').hasMatch(s);
+    }
+
+    IconData iconForCategory(String cat) {
+      switch (cat.toLowerCase()) {
+        case 'electronics':
+          return Icons.devices;
+        case 'fashion':
+          return Icons.checkroom;
+        case 'home & living':
+          return Icons.chair;
+        case 'beauty':
+          return Icons.face;
+        case 'sport':
+          return Icons.sports_soccer;
+        case 'books':
+          return Icons.menu_book;
+        default:
+          return Icons.category;
+      }
+    }
+
+    Color colorForCategory(String cat) {
+      switch (cat.toLowerCase()) {
+        case 'electronics':
+          return const Color(0xFFE3F2FD);
+        case 'fashion':
+          return const Color(0xFFFCE4EC);
+        case 'home & living':
+          return const Color(0xFFF3E5F5);
+        case 'beauty':
+          return const Color(0xFFFFF8E1);
+        case 'sport':
+          return const Color(0xFFE8F5E9);
+        case 'books':
+          return const Color(0xFFFFF3E0);
+        default:
+          return const Color(0xFFF5F5F5);
+      }
+    }
+
+    Widget placeholder() => Container(
+      color: isDark ? Colors.grey[800] : colorForCategory(item.category),
+      child: Center(
+        child: Icon(
+          iconForCategory(item.category),
+          size: 48,
+          color: isDark ? Colors.grey[500] : Colors.grey[600],
+        ),
+      ),
+    );
+
+    if (item.imagePath.isEmpty) return placeholder();
+
+    if (item.imagePath.startsWith('http://') ||
+        item.imagePath.startsWith('https://')) {
+      return Image.network(
+        item.imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => placeholder(),
+        loadingBuilder: (_, child, progress) =>
+            progress == null ? child : placeholder(),
+      );
+    }
+
+    if (item.imagePath.startsWith('data:image') || isBase64(item.imagePath)) {
+      try {
+        final bytes = base64Decode(
+          item.imagePath.contains(',')
+              ? item.imagePath.split(',').last
+              : item.imagePath,
+        );
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder(),
+        );
+      } catch (_) {
+        return placeholder();
+      }
+    }
+
+    if (item.imagePath.startsWith('assets/')) {
+      return Image.asset(
+        item.imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => placeholder(),
+      );
+    }
+
+    return Image.file(
+      File(item.imagePath),
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => placeholder(),
+    );
   }
 
   @override
@@ -804,12 +1033,10 @@ class ItemCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => ItemDetailScreen(item: item)),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ItemDetailScreen(item: item)),
+      ),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
@@ -832,41 +1059,10 @@ class ItemCard extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(18),
                   ),
-                  child: Image.asset(
-                    item.imagePath,
+                  child: SizedBox(
                     height: 120,
                     width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 120,
-                        width: double.infinity,
-                        color: isDark ? Colors.grey[800] : Colors.grey[300],
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_not_supported,
-                                color: isDark
-                                    ? Colors.grey[600]
-                                    : Colors.grey[600],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'No Image',
-                                style: TextStyle(
-                                  color: isDark
-                                      ? Colors.grey[500]
-                                      : Colors.grey[600],
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                    child: _buildImage(),
                   ),
                 ),
                 Positioned(
@@ -921,7 +1117,7 @@ class ItemCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          item.location,
+                          item.locationDisplay,
                           style: TextStyle(
                             fontSize: 12,
                             color: secondaryTextColor,
@@ -934,7 +1130,7 @@ class ItemCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    getTimeAgo(item.timestamp),
+                    item.timeAgo,
                     style: TextStyle(
                       fontSize: 12,
                       color: theme.colorScheme.primary,
