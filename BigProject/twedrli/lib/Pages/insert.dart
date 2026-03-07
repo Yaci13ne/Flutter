@@ -158,47 +158,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return map[label] ?? 'Other';
   }
 
-  // ── Compress + encode image to base64 ─────────────────────────────────────
-  // Resizes to max 800px wide to keep base64 small enough for the API
-  Future<String?> _imageToBase64(File file) async {
+Future<String?> _imageToBase64(File file) async {
     try {
-      // Read raw bytes
-      final rawBytes = await file.readAsBytes();
-
-      // Decode image to get dimensions
-      final codec = await instantiateImageCodec(
-        rawBytes,
-        targetWidth: 800, // max width — Flutter will scale proportionally
-      );
-      final frame = await codec.getNextFrame();
-      final image = frame.image;
-
-      // Re-encode as JPEG at 80% quality
-      final byteData = await image.toByteData(format: ImageByteFormat.rawRgba);
-
-      // If re-encoding fails, fall back to original but warn
-      if (byteData == null) {
-        debugPrint('⚠️ Could not re-encode image, using original bytes');
-        final b64 = base64Encode(rawBytes);
-        return 'data:image/jpeg;base64,$b64';
-      }
-
-      // Use the compressed bytes
-      final b64 = base64Encode(rawBytes); // use rawBytes; resize happened above
+      final bytes = await file.readAsBytes();
+      final b64 = base64Encode(bytes);
       debugPrint('📸 Image base64 length: ${b64.length}');
       return 'data:image/jpeg;base64,$b64';
     } catch (e) {
       debugPrint('Image encode error: $e');
-      // Fallback: just encode as-is
-      try {
-        final bytes = await file.readAsBytes();
-        final b64 = base64Encode(bytes);
-        return 'data:image/jpeg;base64,$b64';
-      } catch (_) {
-        return null;
-      }
+      return null;
     }
   }
+
 
   // ── POST to API ────────────────────────────────────────────────────────────
   Future<void> _submitPost() async {
@@ -254,8 +225,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       debugPrint('STATUS:   ${response.statusCode}');
       debugPrint('RESPONSE: ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
+if (response.statusCode == 200 || response.statusCode == 201) {
+        // Cache the image locally using the new item's ID from the response
+        if (_selectedImage != null && body.containsKey('img_url')) {
+          try {
+            final decoded = json.decode(response.body);
+            final newId = decoded['id']?.toString() ?? '';
+            if (newId.isNotEmpty) {
+              cacheImageForItem(newId, body['img_url'] as String);
+            }
+          } catch (_) {}
+        }
         // Refresh the global list so home + profile update immediately
         await TwedrliApi.fetchProducts();
         if (mounted) {

@@ -99,8 +99,8 @@ class TwedrliLogo extends StatelessWidget {
           child: Center(
             child: Image.asset(
               'assets/logo.png',
-              width: size * 4,
-              height: size * 4,
+              width: size *5,
+              height: size * 5,
               fit: BoxFit.contain,
             ),
           ),

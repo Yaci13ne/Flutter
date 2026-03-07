@@ -14,7 +14,7 @@ class _Msg {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// IN-MEMORY STORE  (one list per conversation, keyed by name)
+// IN-MEMORY STORE
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _Store extends ChangeNotifier {
@@ -40,7 +40,7 @@ class _Store extends ChangeNotifier {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CHAT LIST PAGE  (your existing ChatPage — drop-in replacement)
+// CHAT LIST PAGE
 // ═══════════════════════════════════════════════════════════════════════════
 
 class ChatPage extends StatefulWidget {
@@ -53,7 +53,6 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final _store = _Store();
 
-  // Seed conversations with initial messages
   final List<Map<String, dynamic>> _chats = [
     {
       'name': 'Alex',
@@ -91,7 +90,6 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     _store.addListener(() => setState(() {}));
-    // Seed initial messages once
     if (!_seeded) {
       _seeded = true;
       for (final c in _chats) {
@@ -107,6 +105,8 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return _PageShell(
       title: 'Chat',
       accentColor: const Color(0xFF9B59B6),
@@ -114,17 +114,16 @@ class _ChatPageState extends State<ChatPage> {
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: _chats.length,
-        separatorBuilder: (_, __) => const Divider(
+        separatorBuilder: (_, __) => Divider(
           height: 1,
           thickness: 0.5,
           indent: 76,
-          color: Color(0xFFECEDF2),
+          color: isDark ? const Color(0xFF2A2A3A) : const Color(0xFFECEDF2),
         ),
         itemBuilder: (context, index) {
           final chat = _chats[index];
           final name = chat['name'] as String;
           final isUnread = chat['unread'] as bool;
-          // Show latest message if user has sent one
           final displayMsg = _store.lastMsg(name).isNotEmpty
               ? _store.lastMsg(name)
               : chat['msg'] as String;
@@ -135,7 +134,9 @@ class _ChatPageState extends State<ChatPage> {
               MaterialPageRoute(builder: (_) => _ConversationPage(name: name)),
             ),
             child: Container(
-              color: isUnread ? const Color(0xFFFAF5FF) : Colors.white,
+              color: isUnread
+                  ? (isDark ? const Color(0xFF1E1525) : const Color(0xFFFAF5FF))
+                  : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
               child: Stack(
                 children: [
                   if (isUnread)
@@ -157,7 +158,7 @@ class _ChatPageState extends State<ChatPage> {
                       radius: 26,
                       backgroundColor: const Color(
                         0xFF9B59B6,
-                      ).withOpacity(0.15),
+                      ).withOpacity(isDark ? 0.25 : 0.15),
                       child: Text(
                         name[0],
                         style: const TextStyle(
@@ -174,7 +175,7 @@ class _ChatPageState extends State<ChatPage> {
                         fontWeight: isUnread
                             ? FontWeight.w700
                             : FontWeight.w600,
-                        color: const Color(0xFF1A1A2E),
+                        color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                       ),
                     ),
                     subtitle: Text(
@@ -184,8 +185,12 @@ class _ChatPageState extends State<ChatPage> {
                       style: TextStyle(
                         fontSize: 13,
                         color: isUnread
-                            ? const Color(0xFF1A1A2E)
-                            : const Color(0xFF7B8099),
+                            ? (isDark
+                                  ? Colors.white70
+                                  : const Color(0xFF1A1A2E))
+                            : (isDark
+                                  ? Colors.grey[500]
+                                  : const Color(0xFF7B8099)),
                         fontWeight: isUnread
                             ? FontWeight.w500
                             : FontWeight.w400,
@@ -193,9 +198,11 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                     trailing: Text(
                       chat['time'] as String,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFFB0B4C8),
+                        color: isDark
+                            ? Colors.grey[600]
+                            : const Color(0xFFB0B4C8),
                       ),
                     ),
                   ),
@@ -277,31 +284,36 @@ class _ConversationPageState extends State<_ConversationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final msgs = _store.msgs(widget.name);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF4F6F8),
       body: SafeArea(
         child: Column(
           children: [
             // ── Top bar ──
             Container(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 20,
-                      color: Color(0xFF1A1A2E),
+                      color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                     ),
                   ),
                   const SizedBox(width: 12),
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: const Color(0xFF9B59B6).withOpacity(0.15),
+                    backgroundColor: const Color(
+                      0xFF9B59B6,
+                    ).withOpacity(isDark ? 0.25 : 0.15),
                     child: Text(
                       widget.name[0],
                       style: const TextStyle(
@@ -318,10 +330,12 @@ class _ConversationPageState extends State<_ConversationPage> {
                       children: [
                         Text(
                           widget.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1A1A2E),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF1A1A2E),
                           ),
                         ),
                         const Text(
@@ -350,15 +364,14 @@ class _ConversationPageState extends State<_ConversationPage> {
                   final msg = msgs[i];
                   final next = i < msgs.length - 1 ? msgs[i + 1] : null;
                   final lastInGroup = next == null || next.isMe != msg.isMe;
-
-                  return _buildBubble(msg, lastInGroup);
+                  return _buildBubble(msg, lastInGroup, isDark);
                 },
               ),
             ),
 
             // ── Input ──
             Container(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -367,7 +380,9 @@ class _ConversationPageState extends State<_ConversationPage> {
                     child: Container(
                       constraints: const BoxConstraints(maxHeight: 120),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF4F6F8),
+                        color: isDark
+                            ? const Color(0xFF2A2A3A)
+                            : const Color(0xFFF4F6F8),
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: TextField(
@@ -378,15 +393,21 @@ class _ConversationPageState extends State<_ConversationPage> {
                         onChanged: (v) =>
                             setState(() => _isComposing = v.trim().isNotEmpty),
                         onSubmitted: (_) => _send(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
-                          color: Color(0xFF1A1A2E),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF1A1A2E),
                         ),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Type a message...',
-                          hintStyle: TextStyle(color: Color(0xFFB0B4C8)),
+                          hintStyle: TextStyle(
+                            color: isDark
+                                ? Colors.grey[600]
+                                : const Color(0xFFB0B4C8),
+                          ),
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 18,
                             vertical: 12,
                           ),
@@ -404,7 +425,9 @@ class _ConversationPageState extends State<_ConversationPage> {
                       decoration: BoxDecoration(
                         color: _isComposing
                             ? const Color(0xFF9B59B6)
-                            : const Color(0xFFE0E3EF),
+                            : (isDark
+                                  ? const Color(0xFF2A2A3A)
+                                  : const Color(0xFFE0E3EF)),
                         shape: BoxShape.circle,
                         boxShadow: _isComposing
                             ? [
@@ -423,7 +446,9 @@ class _ConversationPageState extends State<_ConversationPage> {
                         size: 20,
                         color: _isComposing
                             ? Colors.white
-                            : const Color(0xFFB0B4C8),
+                            : (isDark
+                                  ? Colors.grey[600]
+                                  : const Color(0xFFB0B4C8)),
                       ),
                     ),
                   ),
@@ -436,7 +461,7 @@ class _ConversationPageState extends State<_ConversationPage> {
     );
   }
 
-  Widget _buildBubble(_Msg msg, bool lastInGroup) {
+  Widget _buildBubble(_Msg msg, bool lastInGroup, bool isDark) {
     return Padding(
       padding: EdgeInsets.only(
         top: 2,
@@ -450,7 +475,6 @@ class _ConversationPageState extends State<_ConversationPage> {
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Other person's avatar
           if (!msg.isMe)
             SizedBox(
               width: 32,
@@ -459,7 +483,7 @@ class _ConversationPageState extends State<_ConversationPage> {
                       radius: 14,
                       backgroundColor: const Color(
                         0xFF9B59B6,
-                      ).withOpacity(0.15),
+                      ).withOpacity(isDark ? 0.25 : 0.15),
                       child: Text(
                         widget.name[0],
                         style: const TextStyle(
@@ -473,12 +497,13 @@ class _ConversationPageState extends State<_ConversationPage> {
             ),
           if (!msg.isMe) const SizedBox(width: 6),
 
-          // Bubble
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: msg.isMe ? const Color(0xFF9B59B6) : Colors.white,
+                color: msg.isMe
+                    ? const Color(0xFF9B59B6)
+                    : (isDark ? const Color(0xFF2A2A3A) : Colors.white),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(18),
                   topRight: const Radius.circular(18),
@@ -489,7 +514,7 @@ class _ConversationPageState extends State<_ConversationPage> {
                   BoxShadow(
                     color: msg.isMe
                         ? const Color(0xFF9B59B6).withOpacity(0.25)
-                        : Colors.black.withOpacity(0.06),
+                        : Colors.black.withOpacity(isDark ? 0.3 : 0.06),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -499,7 +524,9 @@ class _ConversationPageState extends State<_ConversationPage> {
                 msg.text,
                 style: TextStyle(
                   fontSize: 15,
-                  color: msg.isMe ? Colors.white : const Color(0xFF1A1A2E),
+                  color: msg.isMe
+                      ? Colors.white
+                      : (isDark ? Colors.white : const Color(0xFF1A1A2E)),
                   height: 1.35,
                 ),
               ),
@@ -512,7 +539,7 @@ class _ConversationPageState extends State<_ConversationPage> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PAGE SHELL  (your existing one — unchanged)
+// PAGE SHELL
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _PageShell extends StatelessWidget {
@@ -530,22 +557,26 @@ class _PageShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF4F6F8),
       body: SafeArea(
         child: Column(
           children: [
             Container(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 20,
-                      color: Color(0xFF1A1A2E),
+                      color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -553,10 +584,10 @@ class _PageShell extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A2E),
+                      color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                       letterSpacing: -0.3,
                     ),
                   ),

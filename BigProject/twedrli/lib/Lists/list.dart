@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 // ─────────────────────────────────────────────
-// ENUMS & DATA MODEL
+// ENUMS
 // ─────────────────────────────────────────────
 
 enum ItemStatus { lost, found, claimed }
@@ -38,6 +38,62 @@ extension SortOptionExtension on SortOption {
   }
 }
 
+// ─────────────────────────────────────────────
+// LOCAL IMAGE CACHE
+// Stores base64 images by item ID so they survive
+// fetchProducts() re-runs (server may not return img_url).
+// ─────────────────────────────────────────────
+final Map<String, String> _localImageCache = {};
+
+/// Call this after a successful POST to remember the image locally.
+void cacheImageForItem(String itemId, String base64DataUri) {
+  if (itemId.isNotEmpty && base64DataUri.isNotEmpty) {
+    _localImageCache[itemId] = base64DataUri;
+    debugPrint(
+      '💾 Cached image for item $itemId (${base64DataUri.length} chars)',
+    );
+  }
+}
+
+/// Returns the best available image for an item:
+/// server URL if available, otherwise local cache.
+String resolveImage(String itemId, String serverImgUrl) {
+  // Server returned a real value — use it
+  if (serverImgUrl.isNotEmpty) return serverImgUrl;
+  // Fall back to local cache
+  final cached = _localImageCache[itemId];
+  if (cached != null && cached.isNotEmpty) {
+    debugPrint('🔁 Using cached image for item $itemId');
+    return cached;
+  }
+  return '';
+}
+
+// ─────────────────────────────────────────────
+// IMAGE URL NORMALISATION
+// ─────────────────────────────────────────────
+String _normaliseImageUrl(dynamic raw) {
+  if (raw == null) return '';
+  final s = raw.toString().trim();
+  if (s.isEmpty || s == 'null') return '';
+  if (s.startsWith('data:image')) return s;
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+  // Raw base64 without data URI prefix
+  if (_looksLikeBase64(s)) return 'data:image/jpeg;base64,$s';
+  return s;
+}
+
+bool _looksLikeBase64(String s) {
+  if (s.length < 20) return false;
+  return RegExp(
+    r'^[A-Za-z0-9+/\r\n]+=*$',
+  ).hasMatch(s.replaceAll('\n', '').replaceAll('\r', ''));
+}
+
+// ─────────────────────────────────────────────
+// DATA MODEL
+// ─────────────────────────────────────────────
+
 class LostFoundItem {
   final String id;
   final String title;
@@ -49,18 +105,17 @@ class LostFoundItem {
   final String contactInfo;
   final String color;
   final String category;
-  final int? userId; // ← ADDED: to identify the post owner
+  final int? userId;
 
   String get timeAgo {
     final now = DateTime.now();
-    final difference = now.difference(timestamp);
-    if (difference.inDays > 0) return '${difference.inDays}d ago';
-    if (difference.inHours > 0) return '${difference.inHours}h ago';
-    if (difference.inMinutes > 0) return '${difference.inMinutes}m ago';
+    final diff = now.difference(timestamp);
+    if (diff.inDays > 0) return '${diff.inDays}d ago';
+    if (diff.inHours > 0) return '${diff.inHours}h ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
     return 'Just now';
   }
 
-  // Converts raw API location to display name
   String get locationDisplay {
     const map = {
       'info': 'Faculté d\'Informatique',
@@ -82,10 +137,9 @@ class LostFoundItem {
     this.contactInfo = '',
     this.color = '',
     required this.category,
-    this.userId, // ← ADDED
+    this.userId,
   });
 
-  // Parse one API JSON object into a LostFoundItem
   factory LostFoundItem.fromJson(
     Map<String, dynamic> json, {
     String reporterName = '',
@@ -101,26 +155,41 @@ class LostFoundItem {
       }
     }
 
-    final userId = json['user_id'] as int?; // ← ADDED
+    final id = json['id']?.toString() ?? '';
+    final userId = json['user_id'] as int?;
+
+    // ── Safely read title — try common field names ───────────────────────────
+    final title =
+        (json['title'] ?? json['name'] ?? json['item_title'] ?? 'Untitled')
+            .toString()
+            .trim();
 
     final contact = reporterName.isNotEmpty
         ? 'Reported by $reporterName'
         : 'Reported by user #${json['user_id']}';
 
+    // ── Normalise image, then apply local cache fallback ────────────────────
+    final serverImg = _normaliseImageUrl(json['img_url']);
+    final finalImg = resolveImage(id, serverImg);
+
+    debugPrint(
+      '📷 id=$id title="$title" img=${finalImg.isEmpty ? "none" : finalImg.substring(0, finalImg.length.clamp(0, 50))}',
+    );
+
     return LostFoundItem(
-      id: json['id'].toString(),
-      title: json['title'] ?? 'Untitled',
-      description: json['description'] ?? '',
-      category: json['category'] ?? 'Other',
+      id: id,
+      title: title.isEmpty ? 'Untitled' : title,
+      description: json['description']?.toString() ?? '',
+      category: json['category']?.toString() ?? 'Other',
       status: parseStatus(json['status'] as String?),
-      location: json['location'] ?? '',
+      location: json['location']?.toString() ?? '',
       timestamp: json['date'] != null
-          ? DateTime.tryParse(json['date']) ?? DateTime.now()
+          ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now()
           : DateTime.now(),
-      imagePath: json['img_url'] ?? '',
+      imagePath: finalImg,
       contactInfo: contact,
-      color: json['color'] ?? '',
-      userId: userId, // ← ADDED
+      color: json['color']?.toString() ?? '',
+      userId: userId,
     );
   }
 }
@@ -150,7 +219,6 @@ final ValueNotifier<String> loggedInDepartmentNotifier = ValueNotifier<String>(
 class TwedrliApi {
   static const String _base = 'https://twedrliapi.linguaflo.me';
 
-  // ── Fetch all products ──────────────────────────────────────────────────
   static Future<void> fetchProducts() async {
     isLoadingNotifier.value = true;
     errorNotifier.value = '';
@@ -167,7 +235,6 @@ class TwedrliApi {
       final productsRes = results[0];
       final usersRes = results[1];
 
-      // Build id → name map from users
       final Map<int, String> userNames = {};
       if (usersRes.statusCode == 200) {
         final List<dynamic> userList = json.decode(usersRes.body);
@@ -195,7 +262,6 @@ class TwedrliApi {
     }
   }
 
-  // ── Delete a product by id ──────────────────────────────────────────────
   static Future<bool> deleteProduct(String id) async {
     try {
       final response = await http
@@ -204,8 +270,9 @@ class TwedrliApi {
             headers: {'Content-Type': 'application/json'},
           )
           .timeout(const Duration(seconds: 15));
-
       debugPrint('DELETE /products/$id → ${response.statusCode}');
+      // Also remove from local image cache
+      _localImageCache.remove(id);
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
       debugPrint('DELETE error: $e');
