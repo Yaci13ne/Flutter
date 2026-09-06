@@ -37,9 +37,6 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
     return a.contains(b) || b.contains(a);
   }
 
-  // ─── Category matching: item.category is API value (e.g. "Electronics")
-  //     selectedType is display label (e.g. "Phone", "Laptop")
-  //     We match by checking if the label maps to the same API category
   String _labelToApiCategory(String label) {
     const map = {
       'Phone': 'Electronics',
@@ -106,26 +103,22 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
 
   List<LostFoundItem> get filteredItems {
     return allItemsNotifier.value.where((item) {
-      // Search query
       final matchesSearch =
           searchQuery.isEmpty ||
           item.title.toLowerCase().contains(searchQuery.toLowerCase()) ||
           item.description.toLowerCase().contains(searchQuery.toLowerCase()) ||
           item.category.toLowerCase().contains(searchQuery.toLowerCase());
 
-      // Type filter: match by API category
       final matchesType =
           selectedType == null ||
           item.category.toLowerCase() ==
               _labelToApiCategory(selectedType!).toLowerCase();
 
-      // Zone filter: fuzzy match against locationDisplay or raw location
       final matchesZone =
           selectedZone == null ||
           _locationMatches(item.location, selectedZone!) ||
           _locationMatches(item.locationDisplay, selectedZone!);
 
-      // Color filter
       final matchesColor =
           isAllColorsSelected ||
           (selectedColor != null &&
@@ -150,333 +143,350 @@ class _TwedrliSearchScreenState extends State<TwedrliSearchScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 10),
-
-                // ── Header ──
-                Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header (matches Activity / Chat style) ──
+              Container(
+                color: theme.appBarTheme.backgroundColor,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+                child: Row(
                   children: [
-                    Icon(Icons.search, color: theme.colorScheme.primary),
+                    Icon(
+                      Icons.search,
+                      color: theme.colorScheme.primary,
+                      size: 22,
+                    ),
                     const SizedBox(width: 8),
                     Text(
-                      "Twedrli Search",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Text(
-                        "Cancel",
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                // ── Search Bar ──
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: inputBgColor,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.search,
-                        color: isDark ? Colors.grey[500] : Colors.grey,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          onChanged: (value) =>
-                              setState(() => searchQuery = value),
-                          style: TextStyle(color: textColor),
-                          decoration: InputDecoration(
-                            hintText:
-                                "Search for lost items (e.g., 'Blue Wallet')...",
-                            hintStyle: TextStyle(
-                              color: isDark ? Colors.grey[600] : Colors.grey,
-                            ),
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                      if (searchQuery.isNotEmpty)
-                        GestureDetector(
-                          onTap: () => setState(() => searchQuery = ''),
-                          child: Icon(
-                            Icons.close,
-                            size: 18,
-                            color: isDark ? Colors.grey[500] : Colors.grey,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 25),
-
-                // ── Advanced Filters Header ──
-                Row(
-                  children: [
-                    Text(
-                      "Advanced Filters",
+                      "Search",
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                         color: textColor,
+                        letterSpacing: -0.3,
                       ),
                     ),
                     const Spacer(),
-                    GestureDetector(
-                      onTap: () => setState(() {
-                        selectedType = null;
-                        selectedZone = null;
-                        isAllColorsSelected = true;
-                        selectedColor = null;
-                        searchQuery = "";
-                      }),
-                      child: Text(
-                        "Clear All",
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
+              ),
+              // ── Accent line ──
+              Container(height: 2, color: theme.colorScheme.primary),
 
-                const SizedBox(height: 20),
-
-                // ── Object Type ──
-                Text(
-                  "Object Type",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildObjectTypeField(
-                  context,
-                  isDark,
-                  borderColor,
-                  textColor,
-                  secondaryTextColor,
-                ),
-
-                const SizedBox(height: 18),
-
-                // ── Campus Zone ──
-                Text(
-                  "Campus Zone",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildCampusZoneField(
-                  context,
-                  isDark,
-                  borderColor,
-                  textColor,
-                  secondaryTextColor,
-                ),
-
-                const SizedBox(height: 18),
-
-                // ── Date Row ──
-                Row(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 20),
+
+                    // ── Search Bar ──
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: inputBgColor,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            "From Date",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: textColor,
+                          Icon(
+                            Icons.search,
+                            color: isDark ? Colors.grey[500] : Colors.grey,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              onChanged: (value) =>
+                                  setState(() => searchQuery = value),
+                              style: TextStyle(color: textColor),
+                              decoration: InputDecoration(
+                                hintText:
+                                    "Search for lost items (e.g., 'Blue Wallet')...",
+                                hintStyle: TextStyle(
+                                  color: isDark
+                                      ? Colors.grey[600]
+                                      : Colors.grey,
+                                ),
+                                border: InputBorder.none,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          _DateField(isDark: isDark, borderColor: borderColor),
+                          if (searchQuery.isNotEmpty)
+                            GestureDetector(
+                              onTap: () => setState(() => searchQuery = ''),
+                              child: Icon(
+                                Icons.close,
+                                size: 18,
+                                color: isDark ? Colors.grey[500] : Colors.grey,
+                              ),
+                            ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "To Date",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: textColor,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _DateField(isDark: isDark, borderColor: borderColor),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
 
-                const SizedBox(height: 20),
+                    const SizedBox(height: 25),
 
-                // ── Color ──
-                Text(
-                  "Item Color",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildAllColorsDot(),
-                    _buildColorDot(Colors.black, isDark),
-                    _buildColorDot(const Color(0xFFD6D6D6), isDark),
-                    _buildColorDot(const Color(0xFF2E63D6), isDark),
-                    _buildColorDot(const Color(0xFFE21E1E), isDark),
-                    _buildColorDot(const Color(0xFFF3C200), isDark),
-                    _buildColorDot(const Color(0xFF1B9E3F), isDark),
-                    _buildColorDot(const Color(0xFF8A2BE2), isDark),
-                  ],
-                ),
-
-                const SizedBox(height: 25),
-
-                // ── Apply Button ──
-                GestureDetector(
-                  onTap: () => setState(() {}),
-                  child: Container(
-                    width: double.infinity,
-                    height: 55,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      "Apply Filters & Search",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                // ── Results Header ──
-                ValueListenableBuilder(
-                  valueListenable: allItemsNotifier,
-                  builder: (context, value, child) {
-                    return Row(
+                    // ── Advanced Filters Header ──
+                    Row(
                       children: [
                         Text(
-                          "Matching Items (${filteredItems.length})",
+                          "Advanced Filters",
                           style: TextStyle(
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
                             color: textColor,
                           ),
                         ),
                         const Spacer(),
-                        Text(
-                          "Sorted by: Newest",
-                          style: TextStyle(color: secondaryTextColor),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            selectedType = null;
+                            selectedZone = null;
+                            isAllColorsSelected = true;
+                            selectedColor = null;
+                            searchQuery = "";
+                          }),
+                          child: Text(
+                            "Clear All",
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
                       ],
-                    );
-                  }
-                ),
+                    ),
 
-                const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                // ── Items Grid ──
-                ValueListenableBuilder(
-                  valueListenable: allItemsNotifier,
-                  builder: (context, value, child) {
-                    return filteredItems.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 40),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.search_off,
-                                    size: 64,
-                                    color: isDark
-                                        ? Colors.grey[700]
-                                        : Colors.grey[400],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    "No items match your filters",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: isDark
-                                          ? Colors.grey[500]
-                                          : Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
+                    // ── Object Type ──
+                    Text(
+                      "Object Type",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildObjectTypeField(
+                      context,
+                      isDark,
+                      borderColor,
+                      textColor,
+                      secondaryTextColor,
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // ── Campus Zone ──
+                    Text(
+                      "Campus Zone",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildCampusZoneField(
+                      context,
+                      isDark,
+                      borderColor,
+                      textColor,
+                      secondaryTextColor,
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // ── Date Row ──
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "From Date",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _DateField(
+                                isDark: isDark,
+                                borderColor: borderColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "To Date",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _DateField(
+                                isDark: isDark,
+                                borderColor: borderColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ── Color ──
+                    Text(
+                      "Item Color",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildAllColorsDot(),
+                        _buildColorDot(Colors.black, isDark),
+                        _buildColorDot(const Color(0xFFD6D6D6), isDark),
+                        _buildColorDot(const Color(0xFF2E63D6), isDark),
+                        _buildColorDot(const Color(0xFFE21E1E), isDark),
+                        _buildColorDot(const Color(0xFFF3C200), isDark),
+                        _buildColorDot(const Color(0xFF1B9E3F), isDark),
+                        _buildColorDot(const Color(0xFF8A2BE2), isDark),
+                      ],
+                    ),
+
+                    const SizedBox(height: 25),
+
+                    // ── Apply Button ──
+                    GestureDetector(
+                      onTap: () => setState(() {}),
+                      child: Container(
+                        width: double.infinity,
+                        height: 55,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          "Apply Filters & Search",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    // ── Results Header ──
+                    ValueListenableBuilder(
+                      valueListenable: allItemsNotifier,
+                      builder: (context, value, child) {
+                        return Row(
+                          children: [
+                            Text(
+                              "Matching Items (${filteredItems.length})",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: textColor,
                               ),
                             ),
-                          )
-                        : GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  mainAxisSpacing: 20,
-                                  crossAxisSpacing: 20,
-                                  childAspectRatio: 0.72,
-                                ),
-                            itemCount: filteredItems.length,
-                            itemBuilder: (context, index) {
-                              final item = filteredItems[index];
-                              return _ItemCard(
-                                item: item,
-                                isDark: isDark,
-                                cardColor: cardColor,
-                                textColor: textColor,
-                                secondaryTextColor: secondaryTextColor,
-                              );
-                            },
-                          );
-                  }
-                ),
+                            const Spacer(),
+                            Text(
+                              "Sorted by: Newest",
+                              style: TextStyle(color: secondaryTextColor),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
 
-                const SizedBox(height: 90),
-              ],
-            ),
+                    const SizedBox(height: 20),
+
+                    // ── Items Grid ──
+                    ValueListenableBuilder(
+                      valueListenable: allItemsNotifier,
+                      builder: (context, value, child) {
+                        return filteredItems.isEmpty
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 40,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.search_off,
+                                        size: 64,
+                                        color: isDark
+                                            ? Colors.grey[700]
+                                            : Colors.grey[400],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        "No items match your filters",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: isDark
+                                              ? Colors.grey[500]
+                                              : Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      mainAxisSpacing: 20,
+                                      crossAxisSpacing: 20,
+                                      childAspectRatio: 0.72,
+                                    ),
+                                itemCount: filteredItems.length,
+                                itemBuilder: (context, index) {
+                                  final item = filteredItems[index];
+                                  return _ItemCard(
+                                    item: item,
+                                    isDark: isDark,
+                                    cardColor: cardColor,
+                                    textColor: textColor,
+                                    secondaryTextColor: secondaryTextColor,
+                                  );
+                                },
+                              );
+                      },
+                    ),
+
+                    const SizedBox(height: 90),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -926,7 +936,6 @@ class _ItemCard extends StatelessWidget {
     required this.secondaryTextColor,
   });
 
-  // ─── Smart image widget (network / base64 / file / placeholder) ───────────
   Widget _buildImage() {
     bool isBase64(String s) {
       if (s.length % 4 != 0) return false;
@@ -990,8 +999,21 @@ class _ItemCard extends StatelessWidget {
         item.imagePath,
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => placeholder(),
-        loadingBuilder: (_, child, progress) =>
-            progress == null ? child : placeholder(),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: isDark ? Colors.grey[800] : colorForCategory(item.category),
+            child: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          );
+        },
       );
     }
 
@@ -1033,9 +1055,186 @@ class _ItemCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => ItemDetailScreen(item: item)),
+      onTap: () => showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => DraggableScrollableSheet(
+          initialChildSize: 0.92,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, controller) => Container(
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: ListView(
+              controller: controller,
+              padding: const EdgeInsets.all(20),
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[700] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    height: 240,
+                    width: double.infinity,
+                    child: _buildImage(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            (item.status == ItemStatus.lost
+                                    ? const Color(0xFFE53935)
+                                    : item.status == ItemStatus.found
+                                    ? const Color(0xFF1E88E5)
+                                    : const Color(0xFF43A047))
+                                .withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        item.status.name.toUpperCase(),
+                        style: TextStyle(
+                          color: item.status == ItemStatus.lost
+                              ? const Color(0xFFE53935)
+                              : item.status == ItemStatus.found
+                              ? const Color(0xFF1E88E5)
+                              : const Color(0xFF43A047),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      item.timeAgo,
+                      style: TextStyle(fontSize: 12, color: secondaryTextColor),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  item.title,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: secondaryTextColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        item.locationDisplay,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: secondaryTextColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Description',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  item.description.isNotEmpty
+                      ? item.description
+                      : 'No description provided',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: secondaryTextColor,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[800] : const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          item.contactInfo.isNotEmpty
+                              ? item.contactInfo
+                              : 'No contact info',
+                          style: TextStyle(fontSize: 14, color: textColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+                if (item.status != ItemStatus.claimed)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () {},
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        item.status == ItemStatus.lost
+                            ? 'Contact Owner'
+                            : 'Claim Item',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
       child: Container(
         decoration: BoxDecoration(

@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:twedrli/Lists/list.dart';
+import 'package:twedrli/Pages/Activity/chat.dart';
 
 void main() {
   runApp(const TwedrliApp());
@@ -73,13 +75,424 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedFilterIndex = 0;
   SortOption _currentSort = SortOption.newest;
   bool _isSortMenuVisible = false;
+  late PageController _carouselController;
+  Timer? _carouselTimer;
+  int _carouselIndex = 0;
 
   static const List<String> _filterLabels = ['All', 'Lost', 'Found', 'Claimed'];
 
-  @override
   void initState() {
     super.initState();
+    _carouselController = PageController(initialPage: 0);
+    _startCarousel();
     TwedrliApi.fetchProducts();
+  }
+
+  void _startCarousel() {
+    _carouselTimer?.cancel();
+    _carouselTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (_carouselController.hasClients) {
+        final featuredCount = allItemsNotifier.value
+            .where((i) => i.status == ItemStatus.found)
+            .take(5)
+            .length;
+        if (featuredCount > 1) {
+          _carouselIndex = (_carouselIndex + 1) % featuredCount;
+          _carouselController.animateToPage(
+            _carouselIndex,
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeInOutCubic,
+          );
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _carouselTimer?.cancel();
+    _carouselController.dispose();
+    super.dispose();
+  }
+
+  // ── UI HELPERS ─────────────────────────────────────────────────────────────
+
+  Widget _buildCarousel(bool isDark, List<LostFoundItem> items) {
+    // Feature up to 5 recent found items
+    final featured = items
+        .where((i) => i.status == ItemStatus.found)
+        .take(5)
+        .toList();
+
+    if (featured.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      height: 180,
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      child: PageView.builder(
+        controller: _carouselController,
+        itemCount: featured.length,
+        onPageChanged: (i) => _carouselIndex = i,
+        itemBuilder: (context, index) {
+          final item = featured[index];
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              image: DecorationImage(
+                image: _getImageProvider(item),
+                fit: BoxFit.cover,
+                colorFilter: ColorFilter.mode(
+                  Colors.black.withOpacity(0.4),
+                  BlendMode.darken,
+                ),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00BFAE),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'FEATURED FOUND',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 16,
+                  left: 16,
+                  right: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Found at ${item.location}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  ImageProvider _getImageProvider(LostFoundItem item) {
+    if (item.imagePath.startsWith('http')) {
+      return NetworkImage(item.imagePath);
+    } else if (item.imagePath.startsWith('data:image')) {
+       final bytes = base64Decode(item.imagePath.split(',').last);
+       return MemoryImage(bytes);
+    } else if (item.imagePath.startsWith('assets/')) {
+      return AssetImage(item.imagePath);
+    } else if (item.imagePath.isNotEmpty) {
+      return FileImage(File(item.imagePath));
+    }
+    return const AssetImage('assets/logo.png'); // Fallback
+  }
+
+  Widget _buildHeroStats(bool isDark, int activeCount, int claimedCount) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E88E5), Color(0xFF1565C0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E88E5).withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Campus Status',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Helping students\nfind lost items.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              _statItem('Active', activeCount.toString(), Icons.search_rounded),
+              Container(
+                width: 1,
+                height: 40,
+                color: Colors.white24,
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+              ),
+              _statItem('Recovered', claimedCount.toString(), Icons.verified_rounded),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value, IconData icon) {
+    return Expanded(
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, bool isDark, {double margin = 16}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: margin),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
+          color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(int index, bool isDark) {
+    final isActive = _selectedFilterIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedFilterIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFF1E88E5)
+              : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF1E88E5).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+          border: Border.all(
+            color: isActive
+                ? Colors.transparent
+                : (isDark ? Colors.grey[800]! : Colors.grey[200]!),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            _filterLabels[index],
+            style: TextStyle(
+              color: isActive
+                  ? Colors.white
+                  : (isDark ? Colors.white70 : Colors.black54),
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(bool isDark, int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : const Color(0xFFBBDEFB),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: Color(0xFF4CAF50),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$count Active',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white70 : const Color(0xFF1565C0),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSortButton(bool isDark) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => setState(() => _isSortMenuVisible = !_isSortMenuVisible),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.sort_rounded,
+                size: 18,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Sort',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white70 : Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 80,
+            color: isDark ? Colors.grey[800] : Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No items found',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try changing your filters or search query.',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? Colors.grey[500] : Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   List<LostFoundItem> _getFilteredItems(List<LostFoundItem> items) {
@@ -246,6 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
           vertical: 12,
         ),
         actions: [
+          
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             style: TextButton.styleFrom(
@@ -431,7 +845,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   body: Column(
                     children: [
-                      // ── Filter and Sort Bar ──
+                      _buildCarousel(isDark, items),
+// ── Filter and Sort Bar ──
                       Container(
                         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                         padding: const EdgeInsets.symmetric(
@@ -449,53 +864,113 @@ class _HomeScreenState extends State<HomeScreen> {
                                     (i) {
                                       final bool isSelected =
                                           i == _selectedFilterIndex;
+
+                                      // Color config per filter
+                                      final List<Color> bgColors = [
+                                        Colors.transparent,
+                                        const Color(0xFFFFEBEE),
+                                        const Color(0xFFE3F2FD),
+                                        const Color(0xFFE8F5E9),
+                                      ];
+                                      final List<Color> borderColors = [
+                                        isDark
+                                            ? Colors.grey[600]!
+                                            : const Color(0xFFBDBDBD),
+                                        const Color(0xFFEF9A9A),
+                                        const Color(0xFF90CAF9),
+                                        const Color(0xFFA5D6A7),
+                                      ];
+                                      final List<Color> textColors = [
+                                        isDark
+                                            ? Colors.grey[300]!
+                                            : const Color(0xFF424242),
+                                        const Color(0xFFC62828),
+                                        const Color(0xFF1565C0),
+                                        const Color(0xFF2E7D32),
+                                      ];
+                                      final List<Color> dotColors = [
+                                        Colors.grey,
+                                        const Color(0xFFE53935),
+                                        const Color(0xFF1E88E5),
+                                        const Color(0xFF43A047),
+                                      ];
+
                                       return Padding(
                                         padding: const EdgeInsets.only(
                                           right: 8,
                                         ),
-                                        child: FilterChip(
-                                          label: Text(
-                                            _filterLabels[i],
-                                            style: TextStyle(
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : (isDark
-                                                        ? Colors.grey[400]
-                                                        : const Color(
-                                                            0xFF555555,
-                                                          )),
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                          selected: isSelected,
-                                          onSelected: (_) => setState(
+                                        child: GestureDetector(
+                                          onTap: () => setState(
                                             () => _selectedFilterIndex = i,
                                           ),
-                                          backgroundColor: isDark
-                                              ? Colors.grey[800]
-                                              : Colors.white,
-                                          selectedColor:
-                                              theme.colorScheme.primary,
-                                          checkmarkColor: Colors.white,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              30,
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                              milliseconds: 200,
                                             ),
-                                            side: BorderSide(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 18,
+                                              vertical: 10,
+                                            ),
+                                            decoration: BoxDecoration(
                                               color: isSelected
-                                                  ? Colors.transparent
+                                                  ? (i == 0
+                                                        ? theme
+                                                              .colorScheme
+                                                              .primary
+                                                        : bgColors[i])
                                                   : (isDark
-                                                        ? Colors.grey[700]!
-                                                        : const Color(
-                                                            0xFFE0E0E0,
-                                                          )),
-                                              width: 1.5,
+                                                        ? Colors.grey[850]
+                                                        : Colors.white),
+                                              borderRadius:
+                                                  BorderRadius.circular(30),
+                                              border: Border.all(
+                                                color: isSelected
+                                                    ? (i == 0
+                                                          ? theme
+                                                                .colorScheme
+                                                                .primary
+                                                          : borderColors[i])
+                                                    : (isDark
+                                                          ? Colors.grey[700]!
+                                                          : const Color(
+                                                              0xFFE0E0E0,
+                                                            )),
+                                                width: 1.5,
+                                              ),
                                             ),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected && i == 0
+                                                        ? Colors.white
+                                                              .withOpacity(0.85)
+                                                        : dotColors[i],
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 7),
+                                                Text(
+                                                  _filterLabels[i],
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: isSelected
+                                                        ? (i == 0
+                                                              ? Colors.white
+                                                              : textColors[i])
+                                                        : (isDark
+                                                              ? Colors.grey[400]
+                                                              : const Color(
+                                                                  0xFF616161,
+                                                                )),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       );
@@ -511,18 +986,19 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
+                                  horizontal: 14,
+                                  vertical: 10,
                                 ),
                                 decoration: BoxDecoration(
                                   color: isDark
                                       ? Colors.grey[800]!
-                                      : const Color(0xFFF5F5F5),
+                                      : Colors.white,
                                   borderRadius: BorderRadius.circular(30),
                                   border: Border.all(
                                     color: isDark
-                                        ? Colors.grey[700]!
-                                        : const Color(0xFFE0E0E0),
+                                        ? Colors.grey[600]!
+                                        : const Color(0xFFBDBDBD),
+                                    width: 1.5,
                                   ),
                                 ),
                                 child: Row(
@@ -532,15 +1008,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       size: 18,
                                       color: theme.colorScheme.primary,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Sort',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                    ),
+                                    const SizedBox(width: 5),
+                                  
                                     Icon(
                                       _isSortMenuVisible
                                           ? Icons.keyboard_arrow_up
@@ -555,7 +1024,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-
                       // ── Sort Options Menu ──
                       if (_isSortMenuVisible)
                         Container(
@@ -683,8 +1151,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ],
                                 ),
                               )
-                            : GridView.builder(
-                                padding: const EdgeInsets.all(12),
+: RefreshIndicator(
+    onRefresh: () => TwedrliApi.fetchProducts(),
+    child: GridView.builder(
+        padding: const EdgeInsets.all(12),
                                 gridDelegate:
                                     const SliverGridDelegateWithFixedCrossAxisCount(
                                       crossAxisCount: 2,
@@ -711,7 +1181,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   );
                                 },
                               ),
-                      ),
+                      ),)
                     ],
                   ),
                 );
@@ -911,28 +1381,55 @@ class _HomeScreenState extends State<HomeScreen> {
                           // ── Hide Contact/Claim button for own posts ──
                           if (!isOwner)
                             Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: theme.colorScheme.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    if (isGuestNotifier.value) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Please sign in to contact users.'),
+                                          backgroundColor: Colors.orange,
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    if (item.userId != null) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ChatPage(
+                                            targetUserId: item.userId,
+                                            relatedItemId: item.id,
+                                          ),
+                                        ),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Reporter ID not found'),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                  child: Text(
+                                    item.status == ItemStatus.lost
+                                        ? 'Contact Owner'
+                                        : 'Claim Item',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                                child: Text(
-                                  item.status == ItemStatus.lost
-                                      ? 'Contact Owner'
-                                      : 'Claim Item',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
                             ),
                           if (!isOwner) const SizedBox(width: 12),
                           Container(
@@ -951,7 +1448,18 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: isDark
                                   ? Colors.grey[400]
                                   : const Color(0xFF555555),
-                              onPressed: () {},
+                              onPressed: () {
+                                if (isGuestNotifier.value) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please sign in to share items.'),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                // Implement share logic
+                              },
                             ),
                           ),
                         ],
@@ -1564,19 +2072,23 @@ class _ItemCardState extends State<_ItemCard> {
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        widget.item.status == ItemStatus.lost
-                                            ? 'Contacting owner...'
-                                            : 'Claiming item...',
+                                  if (widget.item.userId != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ChatPage(
+                                          targetUserId: widget.item.userId,
+                                          relatedItemId: widget.item.id,
+                                        ),
                                       ),
-                                      behavior: SnackBarBehavior.floating,
-                                      backgroundColor: isDark
-                                          ? Colors.grey[900]
-                                          : null,
-                                    ),
-                                  );
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Reporter ID not found'),
+                                      ),
+                                    );
+                                  }
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: theme.colorScheme.primary,

@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:twedrli/Lists/list.dart';
+import 'package:twedrli/badge_service.dart';
 import 'package:twedrli/map.dart' hide LostFoundItem;
 
 void main() {
@@ -33,7 +33,7 @@ class TwedrliApp extends StatelessWidget {
   }
 }
 
-// ─── Color Options ─────────────────────────────────────────────────────────────
+// ─── Color Options ──────────────────────────────────────────────────────────
 
 class ItemColor {
   final Color color;
@@ -57,7 +57,7 @@ const List<ItemColor> itemColors = [
   ItemColor(color: Color(0xFFEC4899), label: 'Pink'),
 ];
 
-// ─── Create Post Screen ────────────────────────────────────────────────────────
+// ─── Create Post Screen ──────────────────────────────────────────────────────
 
 class CreatePostScreen extends StatefulWidget {
   final int userId;
@@ -97,7 +97,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  // Maps campus display name → API location enum
   String _toApiLocation(String fullName) {
     final l = fullName.toLowerCase();
     if (l == 'info' || l == 'sm' || l == 'st' || l == 'math') return l;
@@ -105,11 +104,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (l.contains('technolog')) return 'st';
     if (l.contains('sciences et math')) return 'sm';
     if (l.contains('mathémat') || l.contains('math')) return 'math';
-    // Return the original string if no match — backend stores it as-is
     return fullName;
   }
 
-  // Maps objectTypes label → API category enum
   String _toApiCategory(String label) {
     const map = {
       'Phone': 'Electronics',
@@ -158,11 +155,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return map[label] ?? 'Other';
   }
 
-Future<String?> _imageToBase64(File file) async {
+  // ── Compress image and encode to base64 data URI ───────────────────────────
+  Future<String?> _imageToBase64(File file) async {
     try {
       final bytes = await file.readAsBytes();
       final b64 = base64Encode(bytes);
-      debugPrint('📸 Image base64 length: ${b64.length}');
+      debugPrint('📸 base64 length: ${b64.length}');
       return 'data:image/jpeg;base64,$b64';
     } catch (e) {
       debugPrint('Image encode error: $e');
@@ -170,8 +168,116 @@ Future<String?> _imageToBase64(File file) async {
     }
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      imageQuality: 40, // Lower quality for smaller DB footprint
+      maxWidth: 600,    // Smaller dimensions
+      maxHeight: 600,
+    );
+    if (picked != null) {
+      setState(() => _selectedImage = File(picked.path));
+    }
+  }
 
-  // ── POST to API ────────────────────────────────────────────────────────────
+  void _showImageSourceSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white24 : Colors.black12,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Select Image Source',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _sourceButton(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Camera',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.camera);
+                  },
+                  isDark: isDark,
+                ),
+                _sourceButton(
+                  icon: Icons.photo_library_rounded,
+                  label: 'Gallery',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.gallery);
+                  },
+                  isDark: isDark,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sourceButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: primary.withOpacity(0.2), width: 2),
+            ),
+            child: Icon(icon, color: primary, size: 32),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submitPost() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(
@@ -183,35 +289,32 @@ Future<String?> _imageToBase64(File file) async {
     setState(() => _isSubmitting = true);
 
     try {
-      // ── FIX: apply _toApiLocation() so location is stored correctly ──
-      final apiLocation = _toApiLocation(_selectedLocation);
+      String? imageB64;
+      if (_selectedImage != null) {
+        imageB64 = await _imageToBase64(_selectedImage!);
+      }
 
       final body = <String, dynamic>{
         'title': _titleController.text.trim(),
         'description': _descController.text.trim(),
         'category': _toApiCategory(_selectedCategory),
-        'location': apiLocation, // ← FIXED: was _selectedLocation (raw string)
+        'location': _toApiLocation(_selectedLocation),
         'status': _isLost ? 'lost' : 'found',
         'user_id': widget.userId,
         'color': itemColors[_selectedColorIndex].label,
+        if (imageB64 != null) 'img_url': imageB64,
       };
 
-      // Attach image if selected
-      if (_selectedImage != null) {
-        final b64 = await _imageToBase64(_selectedImage!);
-        if (b64 != null) {
-          body['img_url'] = b64;
-          debugPrint('📦 img_url length: ${b64.length}');
-        }
-      }
-
       debugPrint('=== SUBMIT ===');
-      debugPrint('title:    ${body['title']}');
-      debugPrint('category: ${body['category']}');
-      debugPrint('location: ${body['location']}');
-      debugPrint('status:   ${body['status']}');
-      debugPrint('user_id:  ${body['user_id']}');
-      debugPrint('has img:  ${body.containsKey('img_url')}');
+      debugPrint(
+        'title: ${body['title']} | location: ${body['location']} | status: ${body['status']}',
+      );
+      if (body.containsKey('img_url')) {
+        final s = body['img_url'] as String;
+        debugPrint(
+          'img_url length=${s.length} prefix=${s.substring(0, s.length.clamp(0, 50))}',
+        );
+      }
 
       final response = await http
           .post(
@@ -219,25 +322,64 @@ Future<String?> _imageToBase64(File file) async {
             headers: {'Content-Type': 'application/json'},
             body: json.encode(body),
           )
-          .timeout(
-            const Duration(seconds: 30),
-          ); // ← increased timeout for image upload
+          .timeout(const Duration(seconds: 30));
 
-      debugPrint('STATUS:   ${response.statusCode}');
+      debugPrint('STATUS: ${response.statusCode}');
       debugPrint('RESPONSE: ${response.body}');
-if (response.statusCode == 200 || response.statusCode == 201) {
-        // Cache the image locally using the new item's ID from the response
-        if (_selectedImage != null && body.containsKey('img_url')) {
-          try {
-            final decoded = json.decode(response.body);
-            final newId = decoded['id']?.toString() ?? '';
-            if (newId.isNotEmpty) {
-              cacheImageForItem(newId, body['img_url'] as String);
-            }
-          } catch (_) {}
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        try {
+          // Server returns {"message":"Product reported","id":62}
+          // — it doesn't echo back all fields, so build the item from local data
+          final decoded = json.decode(response.body) as Map<String, dynamic>;
+          final itemId =
+              (decoded['id'] ??
+                      decoded['_id'] ??
+                      decoded['product_id'] ??
+                      decoded['insertId'] ??
+                      '')
+                  .toString();
+
+          // Cache the image locally by ID so it survives re-fetches
+          if (imageB64 != null && imageB64.isNotEmpty && itemId.isNotEmpty) {
+            cacheImageForItem(itemId, imageB64);
+          }
+
+          // Build the full item from our local form data
+          final newItem = LostFoundItem(
+            id: itemId,
+            title: body['title'] as String,
+            description: body['description'] as String? ?? '',
+            category: body['category'] as String? ?? 'Other',
+            status: _isLost ? ItemStatus.lost : ItemStatus.found,
+            location: body['location'] as String? ?? '',
+            timestamp: DateTime.now(),
+            imagePath: imageB64 ?? '',
+            contactInfo: 'Reported by ${loggedInUserNameNotifier.value}',
+            color: body['color'] as String? ?? '',
+            userId: widget.userId,
+          );
+
+          allItemsNotifier.value = [newItem, ...allItemsNotifier.value];
+          debugPrint(
+            '✅ Added item locally: id="$itemId" title="${newItem.title}"',
+          );
+
+          // ── Add to Activity Feed ──
+          final activity = ActivityItem(
+            title: _isLost ? 'Post Submitted' : 'Found Item Reported',
+            subtitle: 'Your "${newItem.title}" post is now live and visible to the campus.',
+            type: ActivityType.approved,
+            timestamp: DateTime.now(),
+            isUnread: true,
+            userId: widget.userId,
+          );
+          activityNotifier.value = [activity, ...activityNotifier.value];
+        } catch (e) {
+          debugPrint('❌ Could not parse POST response: $e');
+          await TwedrliApi.fetchProducts();
         }
-        // Refresh the global list so home + profile update immediately
-        await TwedrliApi.fetchProducts();
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -246,6 +388,31 @@ if (response.statusCode == 200 || response.statusCode == 201) {
             ),
           );
           Navigator.of(context).maybePop();
+        }
+
+        // ── Check and award badges based on updated posts ──
+        final userId = loggedInUserIdNotifier.value;
+        if (userId != null) {
+          // b2 — Fast Finder: posted a FOUND item with same title as a LOST
+          // item reported less than 24h ago
+          if (!_isLost) {
+            final postedTitle = _titleController.text.trim().toLowerCase();
+            final now = DateTime.now();
+            final matchingLost = allItemsNotifier.value.any(
+              (item) =>
+                  item.status == ItemStatus.lost &&
+                  item.title.trim().toLowerCase() == postedTitle &&
+                  now.difference(item.timestamp).inHours < 24,
+            );
+            if (matchingLost) await BadgeService.awardBadge(2);
+          }
+
+          await BadgeService.checkAndAwardBadges(
+            userId: userId,
+            allItems: allItemsNotifier.value,
+            hasProfilePhoto: loggedInImgUrlNotifier.value.isNotEmpty,
+            hasProfileSetup: loggedInUserNameNotifier.value.isNotEmpty,
+          );
         }
       } else {
         if (mounted) {
@@ -261,13 +428,11 @@ if (response.statusCode == 200 || response.statusCode == 201) {
       }
     } catch (e) {
       debugPrint('EXCEPTION: $e');
-      if (mounted) {
+      if (mounted && !e.toString().contains('NoSuchMethodError')) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Could not connect: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -382,17 +547,7 @@ if (response.statusCode == 200 || response.statusCode == 201) {
               ),
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            child: Text(
-              'Drafts',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ),
+      
         ],
       ),
     );
@@ -406,7 +561,6 @@ if (response.statusCode == 200 || response.statusCode == 201) {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? Colors.grey[800]! : const Color(0xFFBAE6FD),
-          width: 1,
         ),
       ),
       child: Row(
@@ -463,16 +617,7 @@ if (response.statusCode == 200 || response.statusCode == 201) {
 
   Widget _buildPhotoUpload(bool isDark) {
     return GestureDetector(
-      onTap: () async {
-        final picker = ImagePicker();
-        final picked = await picker.pickImage(
-          source: ImageSource.gallery,
-          imageQuality: 70, // ← compress at pick time too
-          maxWidth: 800, // ← limit dimensions at pick time
-          maxHeight: 800,
-        );
-        if (picked != null) setState(() => _selectedImage = File(picked.path));
-      },
+      onTap: _showImageSourceSheet,
       child: Container(
         width: double.infinity,
         height: _selectedImage != null ? 200 : null,
@@ -523,18 +668,7 @@ if (response.statusCode == 200 || response.statusCode == 201) {
                     bottom: 8,
                     right: 8,
                     child: GestureDetector(
-                      onTap: () async {
-                        final picker = ImagePicker();
-                        final picked = await picker.pickImage(
-                          source: ImageSource.gallery,
-                          imageQuality: 70,
-                          maxWidth: 800,
-                          maxHeight: 800,
-                        );
-                        if (picked != null) {
-                          setState(() => _selectedImage = File(picked.path));
-                        }
-                      },
+                      onTap: _showImageSourceSheet,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -641,17 +775,15 @@ if (response.statusCode == 200 || response.statusCode == 201) {
     );
   }
 
-  Widget _buildLabel(String text, bool isDark) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w700,
-        color: isDark ? Colors.white70 : const Color(0xFF1A1A2E),
-        letterSpacing: -0.2,
-      ),
-    );
-  }
+  Widget _buildLabel(String text, bool isDark) => Text(
+    text,
+    style: TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+      color: isDark ? Colors.white70 : const Color(0xFF1A1A2E),
+      letterSpacing: -0.2,
+    ),
+  );
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -680,7 +812,6 @@ if (response.statusCode == 200 || response.statusCode == 201) {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
             color: isDark ? Colors.grey[800]! : const Color(0xFFDDE8EE),
-            width: 1,
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -759,7 +890,6 @@ if (response.statusCode == 200 || response.statusCode == 201) {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? Colors.grey[800]! : const Color(0xFFDDE8EE),
-          width: 1,
         ),
       ),
       child: DropdownButtonHideUnderline(
@@ -804,12 +934,11 @@ if (response.statusCode == 200 || response.statusCode == 201) {
             child: child!,
           ),
         );
-        if (picked != null) {
+        if (picked != null)
           setState(() {
             _dateController.text =
                 '${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}/${picked.year}';
           });
-        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -818,25 +947,16 @@ if (response.statusCode == 200 || response.statusCode == 201) {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isDark ? Colors.grey[800]! : const Color(0xFFDDE8EE),
-            width: 1,
           ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                _dateController.text.isEmpty
-                    ? 'mm/dd/yyyy'
-                    : _dateController.text,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: _dateController.text.isEmpty
-                      ? (isDark ? Colors.grey[600] : const Color(0xFFB0C4CE))
-                      : (isDark ? Colors.white70 : const Color(0xFF1A1A2E)),
-                ),
-              ),
-            ),
-          ],
+        child: Text(
+          _dateController.text.isEmpty ? 'mm/dd/yyyy' : _dateController.text,
+          style: TextStyle(
+            fontSize: 14,
+            color: _dateController.text.isEmpty
+                ? (isDark ? Colors.grey[600] : const Color(0xFFB0C4CE))
+                : (isDark ? Colors.white70 : const Color(0xFF1A1A2E)),
+          ),
         ),
       ),
     );
@@ -949,7 +1069,6 @@ if (response.statusCode == 200 || response.statusCode == 201) {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
             color: isDark ? Colors.grey[800]! : const Color(0xFFDDE8EE),
-            width: 1,
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -971,7 +1090,6 @@ if (response.statusCode == 200 || response.statusCode == 201) {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? Colors.grey[800]! : const Color(0xFFBAE6FD),
-          width: 1,
         ),
       ),
       child: Row(

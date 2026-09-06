@@ -34,6 +34,23 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
+  /// Creates a badges row for the newly registered user.
+  /// All 29 badges default to false on the server — just send user_id.
+  Future<void> _createBadgesRow(int userId) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('https://twedrliapi.linguaflo.me/badges'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'user_id': userId}),
+          )
+          .timeout(const Duration(seconds: 10));
+      debugPrint('POST /badges → ${res.statusCode}: ${res.body}');
+    } catch (e) {
+      debugPrint('Could not create badges row: $e');
+    }
+  }
+
   Future<void> _signUp() async {
     final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim();
@@ -79,6 +96,7 @@ class _SignupScreenState extends State<SignupScreen> {
               'email': email,
               'password': password,
               'department': _selectedDepartment,
+              'img_url': '',
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -86,9 +104,14 @@ class _SignupScreenState extends State<SignupScreen> {
       final data = json.decode(response.body) as Map<String, dynamic>;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Save userId globally so it can be used right after signup
-        loggedInUserIdNotifier.value = data['userId'] as int;
+        final userId = data['userId'] as int;
+
+        // Save user info globally
+        loggedInUserIdNotifier.value = userId;
         loggedInUserNameNotifier.value = fullName;
+
+        // Create the badges row for this new user (fire and don't await on UI)
+        await _createBadgesRow(userId);
 
         if (mounted) {
           Navigator.of(context).pushReplacement(

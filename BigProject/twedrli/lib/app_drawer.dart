@@ -1,5 +1,7 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:twedrli/Lists/list.dart';
 import 'package:twedrli/Pages/Login.dart';
 import 'package:twedrli/Pages/Settings.dart';
 import 'package:twedrli/theme/theme_modifier.dart';
@@ -25,7 +27,7 @@ class _AppDrawerState extends State<AppDrawer> {
           ValueListenableBuilder<String>(
             valueListenable: displayNameNotifier,
             builder: (context, displayName, _) {
-              return ValueListenableBuilder<File?>(
+              return ValueListenableBuilder<Uint8List?>(
                 valueListenable: profileImageNotifier,
                 builder: (context, profileImage, _) {
                   return DrawerHeader(
@@ -35,19 +37,35 @@ class _AppDrawerState extends State<AppDrawer> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: Colors.white,
-                          backgroundImage: profileImage != null
-                              ? FileImage(profileImage)
-                              : null,
-                          child: profileImage == null
-                              ? Icon(
-                                  Icons.person,
-                                  size: 40,
-                                  color: Theme.of(context).colorScheme.primary,
-                                )
-                              : null,
+                      ValueListenableBuilder<String>(
+                          valueListenable: loggedInImgUrlNotifier,
+                          builder: (context, imgUrl, _) {
+                            return CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Colors.white,
+                backgroundImage: profileImage != null
+                                  ? MemoryImage(profileImage) as ImageProvider
+                                  : imgUrl.isNotEmpty
+                                  ? (imgUrl.startsWith('data:image')
+                                        ? MemoryImage(
+                                                base64Decode(
+                                                  imgUrl.split(',').last,
+                                                ),
+                                              )
+                                              as ImageProvider
+                                        : NetworkImage(imgUrl) as ImageProvider)
+                                  : null,
+                              child: (profileImage == null && imgUrl.isEmpty)
+                                  ? Icon(
+                                      Icons.person,
+                                      size: 40,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    )
+                                  : null,
+                            );
+                          },
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -124,15 +142,27 @@ class _AppDrawerState extends State<AppDrawer> {
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.logout_rounded, color: Color(0xFFE74C3C)),
-            title: const Text(
-              'Sign Out',
+            leading: Icon(
+              isGuestNotifier.value ? Icons.login_rounded : Icons.logout_rounded,
+              color: isGuestNotifier.value ? const Color(0xFF2979FF) : const Color(0xFFE74C3C),
+            ),
+            title: Text(
+              isGuestNotifier.value ? 'Sign In' : 'Sign Out',
               style: TextStyle(
-                color: Color(0xFFE74C3C),
+                color: isGuestNotifier.value ? const Color(0xFF2979FF) : const Color(0xFFE74C3C),
                 fontWeight: FontWeight.w600,
               ),
             ),
 onTap: () async {
+              if (isGuestNotifier.value) {
+                isGuestNotifier.value = false;
+                Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+                return;
+              }
+
               final navigator = Navigator.of(context, rootNavigator: true);
               Navigator.pop(context); // close drawer
 
@@ -188,6 +218,7 @@ onTap: () async {
                 profileImageNotifier.value = null;
                 displayNameNotifier.value = '';
                 usernameNotifier.value = '';
+                isGuestNotifier.value = false;
 
                 navigator.pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),

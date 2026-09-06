@@ -1,10 +1,13 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:twedrli/Lists/list.dart';
 import 'package:twedrli/Pages/Login.dart';
 import 'package:twedrli/Pages/TutorialPage.dart';
 import 'package:twedrli/Pages/profile.dart';
+import 'package:twedrli/Pages/setup_profile_screen.dart';
 import 'package:twedrli/theme/theme_modifier.dart';
 import 'package:twedrli/main.dart';
 
@@ -44,20 +47,29 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _biometricEnabled = false;
   bool _loginAlerts = true;
 
-  // ── Accessibility ───────────────────────────────────────────────────────────
-  double _fontSize = 1.0; // scale factor
-  bool _reduceMotion = false;
-  bool _highContrast = false;
+  // ── Accessibility (Now using global notifiers) ──────────────────────────────
 
-  // ── Search preferences ──────────────────────────────────────────────────────
-  String _selectedDistance = '1 km';
-  String _selectedSort = 'Newest First';
-  String _selectedLanguage = 'English';
+  // ── Search preferences (Now using global notifiers) ─────────────────────────
 
   // ── Options ─────────────────────────────────────────────────────────────────
-  final List<String> _distanceOptions = ['500 m', '1 km', '2 km', '5 km', '10 km'];
-  final List<String> _sortOptions = ['Newest First', 'Oldest First', 'Most Relevant'];
-  final List<String> _languageOptions = ['English', 'French', 'Spanish', 'Arabic'];
+  final List<String> _distanceOptions = [
+    '500 m',
+    '1 km',
+    '2 km',
+    '5 km',
+    '10 km',
+  ];
+  final List<String> _sortOptions = [
+    'Newest First',
+    'Oldest First',
+    'Most Relevant',
+  ];
+  final List<String> _languageOptions = [
+    'English',
+    'French',
+    'Spanish',
+    'Arabic',
+  ];
 
   // ── Blocked users (mock) ────────────────────────────────────────────────────
   final List<Map<String, String>> _blockedUsers = [
@@ -101,7 +113,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F0F12) : const Color(0xFFF4F6FA),
+      backgroundColor:
+          isDark ? const Color(0xFF0F0F12) : const Color(0xFFF4F6FA),
       appBar: _buildAppBar(isDark, scheme),
       body: FadeTransition(
         opacity: _fadeAnimation,
@@ -121,26 +134,36 @@ class _SettingsScreenState extends State<SettingsScreen>
               _card(isDark, [
                 _themeToggle(isDark, scheme),
                 _divider(isDark),
-                _accessibilitySlider(isDark, scheme),
-                _divider(isDark),
-                _switchTile(
-                  title: 'Reduce Motion',
-                  subtitle: 'Minimise animations throughout the app',
-                  icon: Icons.animation_outlined,
-                  value: _reduceMotion,
-                  onChanged: (v) => setState(() => _reduceMotion = v),
-                  isDark: isDark,
-                  scheme: scheme,
+                ValueListenableBuilder<double>(
+                  valueListenable: textScaleNotifier,
+                  builder: (context, scale, _) =>
+                      _accessibilitySlider(isDark, scheme, scale),
                 ),
                 _divider(isDark),
-                _switchTile(
-                  title: 'High Contrast',
-                  subtitle: 'Improve readability with stronger contrast',
-                  icon: Icons.contrast_outlined,
-                  value: _highContrast,
-                  onChanged: (v) => setState(() => _highContrast = v),
-                  isDark: isDark,
-                  scheme: scheme,
+                ValueListenableBuilder<bool>(
+                  valueListenable: reduceMotionNotifier,
+                  builder: (context, value, _) => _switchTile(
+                    title: 'Reduce Motion',
+                    subtitle: 'Minimise animations throughout the app',
+                    icon: Icons.animation_outlined,
+                    value: value,
+                    onChanged: (v) => reduceMotionNotifier.value = v,
+                    isDark: isDark,
+                    scheme: scheme,
+                  ),
+                ),
+                _divider(isDark),
+                ValueListenableBuilder<bool>(
+                  valueListenable: highContrastNotifier,
+                  builder: (context, value, _) => _switchTile(
+                    title: 'High Contrast',
+                    subtitle: 'Improve readability with stronger contrast',
+                    icon: Icons.contrast_outlined,
+                    value: value,
+                    onChanged: (v) => highContrastNotifier.value = v,
+                    isDark: isDark,
+                    scheme: scheme,
+                  ),
                 ),
               ]),
               const SizedBox(height: 24),
@@ -220,7 +243,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                             onPressed: () => _pickQuietHours(context, isDark),
                             child: Text(
                               'Edit',
-                              style: TextStyle(color: scheme.primary, fontSize: 13),
+                              style: TextStyle(
+                                color: scheme.primary,
+                                fontSize: 13,
+                              ),
                             ),
                           )
                         : null,
@@ -234,7 +260,9 @@ class _SettingsScreenState extends State<SettingsScreen>
               _card(isDark, [
                 _switchTile(
                   title: 'Two-Factor Authentication',
-                  subtitle: _twoFactorEnabled ? 'Enabled via authenticator app' : 'Add an extra layer of security',
+                  subtitle: _twoFactorEnabled
+                      ? 'Enabled via authenticator app'
+                      : 'Add an extra layer of security',
                   icon: Icons.verified_user_outlined,
                   value: _twoFactorEnabled,
                   onChanged: (v) => _toggle2FA(context, v, isDark, scheme),
@@ -267,7 +295,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                   title: 'Change Password',
                   subtitle: 'Last changed 3 months ago',
                   icon: Icons.lock_outline,
-                  onTap: () => _showComingSoon(context),
+                  onTap: () =>
+                      _showChangePasswordDialog(context, isDark, scheme),
                   isDark: isDark,
                   scheme: scheme,
                 ),
@@ -286,24 +315,30 @@ class _SettingsScreenState extends State<SettingsScreen>
               // ── Search Preferences ─────────────────────────────────────────
               _section('Search Preferences', isDark),
               _card(isDark, [
-                _dropdownTile(
-                  label: 'Search Radius',
-                  icon: Icons.radar_outlined,
-                  value: _selectedDistance,
-                  options: _distanceOptions,
-                  onChanged: (v) => setState(() => _selectedDistance = v!),
-                  isDark: isDark,
-                  scheme: scheme,
+                ValueListenableBuilder<String>(
+                  valueListenable: searchRadiusNotifier,
+                  builder: (context, value, _) => _dropdownTile(
+                    label: 'Search Radius',
+                    icon: Icons.radar_outlined,
+                    value: value,
+                    options: _distanceOptions,
+                    onChanged: (v) => searchRadiusNotifier.value = v!,
+                    isDark: isDark,
+                    scheme: scheme,
+                  ),
                 ),
                 _divider(isDark),
-                _dropdownTile(
-                  label: 'Default Sort',
-                  icon: Icons.sort_outlined,
-                  value: _selectedSort,
-                  options: _sortOptions,
-                  onChanged: (v) => setState(() => _selectedSort = v!),
-                  isDark: isDark,
-                  scheme: scheme,
+                ValueListenableBuilder<String>(
+                  valueListenable: defaultSortNotifier,
+                  builder: (context, value, _) => _dropdownTile(
+                    label: 'Default Sort',
+                    icon: Icons.sort_outlined,
+                    value: value,
+                    options: _sortOptions,
+                    onChanged: (v) => defaultSortNotifier.value = v!,
+                    isDark: isDark,
+                    scheme: scheme,
+                  ),
                 ),
               ]),
               const SizedBox(height: 24),
@@ -311,14 +346,17 @@ class _SettingsScreenState extends State<SettingsScreen>
               // ── Language ───────────────────────────────────────────────────
               _section('Language & Region', isDark),
               _card(isDark, [
-                _dropdownTile(
-                  label: 'App Language',
-                  icon: Icons.language_outlined,
-                  value: _selectedLanguage,
-                  options: _languageOptions,
-                  onChanged: (v) => setState(() => _selectedLanguage = v!),
-                  isDark: isDark,
-                  scheme: scheme,
+                ValueListenableBuilder<String>(
+                  valueListenable: appLanguageNotifier,
+                  builder: (context, value, _) => _dropdownTile(
+                    label: 'App Language',
+                    icon: Icons.language_outlined,
+                    value: value,
+                    options: _languageOptions,
+                    onChanged: (v) => appLanguageNotifier.value = v!,
+                    isDark: isDark,
+                    scheme: scheme,
+                  ),
                 ),
               ]),
               const SizedBox(height: 24),
@@ -404,7 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   title: 'Backup & Sync',
                   subtitle: 'Last backed up: Today at 09:14',
                   icon: Icons.backup_outlined,
-                  onTap: () => _showComingSoon(context),
+                  onTap: () => _runBackup(context, isDark, scheme),
                   isDark: isDark,
                   scheme: scheme,
                 ),
@@ -562,7 +600,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   // ─────────────────────────────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar(bool isDark, ColorScheme scheme) {
     return AppBar(
-      backgroundColor: isDark ? const Color(0xFF0F0F12) : const Color(0xFFF4F6FA),
+      backgroundColor:
+          isDark ? const Color(0xFF0F0F12) : const Color(0xFFF4F6FA),
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       centerTitle: true,
@@ -613,16 +652,15 @@ class _SettingsScreenState extends State<SettingsScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.06),
+            color: isDark
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: children,
-      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
 
@@ -649,7 +687,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.35) : Colors.black.withOpacity(0.07),
+            color: isDark
+                ? Colors.black.withOpacity(0.35)
+                : Colors.black.withOpacity(0.07),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -660,22 +700,33 @@ class _SettingsScreenState extends State<SettingsScreen>
         children: [
           Stack(
             children: [
-ValueListenableBuilder<File?>(
+              ValueListenableBuilder<Uint8List?>(
                 valueListenable: profileImageNotifier,
                 builder: (context, profileImage, _) {
-                  return CircleAvatar(
-                    radius: 32,
-                    backgroundColor: scheme.primary.withOpacity(0.15),
-                    backgroundImage: profileImage != null
-                        ? FileImage(profileImage)
-                        : null,
-                    child: profileImage == null
-                        ? Icon(
-                            Icons.person_rounded,
-                            size: 34,
-                            color: scheme.primary,
-                          )
-                        : null,
+                  return ValueListenableBuilder<String>(
+                    valueListenable: loggedInImgUrlNotifier,
+                    builder: (context, imgUrl, _) {
+                      return CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.white,
+                        backgroundImage: profileImage != null
+                            ? MemoryImage(profileImage) as ImageProvider
+                            : imgUrl.isNotEmpty
+                                ? (imgUrl.startsWith('data:image')
+                                    ? MemoryImage(
+                                        base64Decode(imgUrl.split(',').last),
+                                      ) as ImageProvider
+                                    : NetworkImage(imgUrl) as ImageProvider)
+                                : null,
+                        child: (profileImage == null && imgUrl.isEmpty)
+                            ? Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Theme.of(context).colorScheme.primary,
+                              )
+                            : null,
+                      );
+                    },
                   );
                 },
               ),
@@ -704,7 +755,7 @@ ValueListenableBuilder<File?>(
               children: [
                 Row(
                   children: [
-            ValueListenableBuilder<String>(
+                    ValueListenableBuilder<String>(
                       valueListenable: displayNameNotifier,
                       builder: (context, displayName, _) {
                         return Text(
@@ -718,11 +769,15 @@ ValueListenableBuilder<File?>(
                       },
                     ),
                     const SizedBox(width: 6),
-                    Icon(Icons.verified_rounded, size: 15, color: scheme.primary),
+                    Icon(
+                      Icons.verified_rounded,
+                      size: 15,
+                      color: scheme.primary,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 3),
-ValueListenableBuilder<String>(
+                ValueListenableBuilder<String>(
                   valueListenable: usernameNotifier,
                   builder: (context, username, _) {
                     return Text(
@@ -746,7 +801,16 @@ ValueListenableBuilder<String>(
             ),
           ),
           GestureDetector(
-            onTap: () => _showComingSoon(context),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SetupProfileScreen(
+                    fullName: displayNameNotifier.value,
+                  ),
+                ),
+              );
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
@@ -766,6 +830,104 @@ ValueListenableBuilder<String>(
         ],
       ),
     );
+  }
+
+  void _showChangePasswordDialog(
+      BuildContext context, bool isDark, ColorScheme scheme) {
+    final oldController = TextEditingController();
+    final newController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => _styledDialog(
+        isDark: isDark,
+        title: 'Change Password',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _dialogTextField(isDark, oldController, 'Current Password',
+                obscure: true),
+            const SizedBox(height: 12),
+            _dialogTextField(isDark, newController, 'New Password',
+                obscure: true),
+            const SizedBox(height: 12),
+            _dialogTextField(isDark, confirmController, 'Confirm New Password',
+                obscure: true),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (newController.text != confirmController.text) {
+                _snack(context, 'Passwords do not match', color: Colors.red);
+                return;
+              }
+              Navigator.pop(context);
+              _snack(context, 'Password updated successfully',
+                  icon: Icons.lock_person, color: Colors.green);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dialogTextField(
+      bool isDark, TextEditingController controller, String hint,
+      {bool obscure = false}) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black26),
+        filled: true,
+        fillColor: isDark ? Colors.white10 : Colors.grey[100],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+    );
+  }
+
+  void _runBackup(BuildContext context, bool isDark, ColorScheme scheme) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _styledDialog(
+        isDark: isDark,
+        title: 'Backing Up...',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            LinearProgressIndicator(color: scheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              'Syncing your data with the cloud',
+              style: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
+            ),
+          ],
+        ),
+        actions: [],
+      ),
+    );
+
+    Future.delayed(const Duration(seconds: 2), () {
+      Navigator.pop(context);
+      _snack(context, 'Backup complete',
+          icon: Icons.cloud_done, color: scheme.primary);
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -807,9 +969,9 @@ ValueListenableBuilder<String>(
   // ─────────────────────────────────────────────────────────────────────────────
   // FONT SIZE SLIDER
   // ─────────────────────────────────────────────────────────────────────────────
-  Widget _accessibilitySlider(bool isDark, ColorScheme scheme) {
+  Widget _accessibilitySlider(bool isDark, ColorScheme scheme, double scale) {
     final labels = ['Small', 'Default', 'Large', 'X-Large'];
-    final snapped = ((_fontSize - 0.8) / 0.2).round().clamp(0, 3);
+    final snapped = ((scale - 0.8) / 0.2).round().clamp(0, 3);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -825,8 +987,11 @@ ValueListenableBuilder<String>(
                   color: scheme.primary.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(Icons.text_fields_outlined,
-                    color: scheme.primary, size: 20),
+                child: Icon(
+                  Icons.text_fields_outlined,
+                  color: scheme.primary,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Column(
@@ -851,13 +1016,13 @@ ValueListenableBuilder<String>(
             ],
           ),
           Slider(
-            value: _fontSize,
+            value: scale,
             min: 0.8,
             max: 1.4,
             divisions: 3,
             activeColor: scheme.primary,
             inactiveColor: scheme.primary.withOpacity(0.15),
-            onChanged: (v) => setState(() => _fontSize = v),
+            onChanged: (v) => textScaleNotifier.value = v,
           ),
         ],
       ),
@@ -1006,8 +1171,11 @@ ValueListenableBuilder<String>(
         value: value,
         underline: const SizedBox(),
         isDense: true,
-        icon: Icon(Icons.keyboard_arrow_down_rounded,
-            color: isDark ? Colors.white38 : Colors.black38, size: 18),
+        icon: Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: isDark ? Colors.white38 : Colors.black38,
+          size: 18,
+        ),
         style: TextStyle(
           color: isDark ? Colors.white70 : Colors.black54,
           fontSize: 14,
@@ -1025,7 +1193,12 @@ ValueListenableBuilder<String>(
   // DIALOGS & ACTIONS
   // ─────────────────────────────────────────────────────────────────────────────
 
-  void _toggle2FA(BuildContext context, bool enable, bool isDark, ColorScheme scheme) {
+  void _toggle2FA(
+    BuildContext context,
+    bool enable,
+    bool isDark,
+    ColorScheme scheme,
+  ) {
     if (enable) {
       showDialog(
         context: context,
@@ -1041,8 +1214,9 @@ ValueListenableBuilder<String>(
                 'Scan the QR code below with your authenticator app (Google Authenticator, Authy, etc.).',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: isDark ? Colors.white70 : Colors.black54,
-                    height: 1.5),
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 16),
               Container(
@@ -1052,8 +1226,11 @@ ValueListenableBuilder<String>(
                   color: isDark ? Colors.white10 : Colors.grey[100],
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.qr_code_2_rounded,
-                    size: 80, color: isDark ? Colors.white54 : Colors.black45),
+                child: Icon(
+                  Icons.qr_code_2_rounded,
+                  size: 80,
+                  color: isDark ? Colors.white54 : Colors.black45,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
@@ -1068,13 +1245,19 @@ ValueListenableBuilder<String>(
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
                 setState(() => _twoFactorEnabled = true);
-                _snack(context, '2FA enabled successfully', icon: Icons.check_circle, color: Colors.green);
+                _snack(
+                  context,
+                  '2FA enabled successfully',
+                  icon: Icons.check_circle,
+                  color: Colors.green,
+                );
               },
               child: const Text('Enable'),
             ),
@@ -1106,10 +1289,18 @@ ValueListenableBuilder<String>(
     });
   }
 
-  void _showActiveSessions(BuildContext context, bool isDark, ColorScheme scheme) {
+  void _showActiveSessions(
+    BuildContext context,
+    bool isDark,
+    ColorScheme scheme,
+  ) {
     final sessions = [
-      {'device': 'iPhone 15 Pro', 'location': 'Tlemcen, DZ', 'time': 'Now', 'current': true},
-      {'device': 'Chrome · MacBook', 'location': 'Oran, DZ', 'time': '2h ago', 'current': false},
+      {
+        'device': 'Samsung Galaxy M55s · Android',
+        'location': 'Tlemcen, DZ',
+        'time': 'Now',
+        'current': true,
+      },
     ];
     showDialog(
       context: context,
@@ -1129,49 +1320,69 @@ ValueListenableBuilder<String>(
               title: Text(
                 s['device']! as String,
                 style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.w500),
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               subtitle: Text(
                 '${s['location'] as String}· ${s['time'] as String}',
                 style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.white38 : Colors.black38),
+                  fontSize: 12,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
               ),
               trailing: isCurrent
                   ? Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(20)),
-                      child: const Text('This device',
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.green,
-                              fontWeight: FontWeight.w600)),
+                        color: Colors.green.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'This device',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.green,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     )
                   : TextButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        _snack(context, 'Session revoked',
-                            icon: Icons.logout, color: Colors.orange);
+                        _snack(
+                          context,
+                          'Session revoked',
+                          icon: Icons.logout,
+                          color: Colors.orange,
+                        );
                       },
-                      child: const Text('Revoke',
-                          style: TextStyle(color: Colors.red))),
+                      child: const Text(
+                        'Revoke',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
             );
           }).toList(),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
   }
 
-  void _showBlockedUsers(BuildContext context, bool isDark, ColorScheme scheme) {
+  void _showBlockedUsers(
+    BuildContext context,
+    bool isDark,
+    ColorScheme scheme,
+  ) {
     showDialog(
       context: context,
       builder: (_) => StatefulBuilder(
@@ -1184,7 +1395,8 @@ ValueListenableBuilder<String>(
                   child: Text(
                     'No blocked users.',
                     style: TextStyle(
-                        color: isDark ? Colors.white38 : Colors.black38),
+                      color: isDark ? Colors.white38 : Colors.black38,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 )
@@ -1196,32 +1408,44 @@ ValueListenableBuilder<String>(
                       leading: CircleAvatar(
                         radius: 18,
                         backgroundColor: scheme.primary.withOpacity(0.1),
-                        child: Icon(Icons.person_outline,
-                            color: scheme.primary, size: 18),
+                        child: Icon(
+                          Icons.person_outline,
+                          color: scheme.primary,
+                          size: 18,
+                        ),
                       ),
-                      title: Text(u['name']!,
-                          style: TextStyle(
-                              color: isDark ? Colors.white : Colors.black87,
-                              fontWeight: FontWeight.w500)),
-                      subtitle: Text(u['handle']!,
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? Colors.white38 : Colors.black38)),
+                      title: Text(
+                        u['name']!,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        u['handle']!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                      ),
                       trailing: TextButton(
                         onPressed: () {
                           setLocal(() => _blockedUsers.remove(u));
                           setState(() {});
                         },
-                        child: const Text('Unblock',
-                            style: TextStyle(color: Colors.red)),
+                        child: const Text(
+                          'Unblock',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
                     );
                   }).toList(),
                 ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close')),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
           ],
         ),
       ),
@@ -1237,19 +1461,26 @@ ValueListenableBuilder<String>(
         content: Text(
           'This will free up $_cacheSize of storage. The app may be slightly slower until data is rebuilt.',
           style: TextStyle(
-              color: isDark ? Colors.white70 : Colors.black54, height: 1.5),
+            color: isDark ? Colors.white70 : Colors.black54,
+            height: 1.5,
+          ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () {
               Navigator.pop(context);
               setState(() => _cacheSize = '0 B');
-              _snack(context, 'Cache cleared',
-                  icon: Icons.check_circle, color: Colors.green);
+              _snack(
+                context,
+                'Cache cleared',
+                icon: Icons.check_circle,
+                color: Colors.green,
+              );
             },
             child: const Text('Clear Cache'),
           ),
@@ -1271,8 +1502,9 @@ ValueListenableBuilder<String>(
             Text(
               'We will prepare a JSON export of your account data including:',
               style: TextStyle(
-                  color: isDark ? Colors.white70 : Colors.black54,
-                  height: 1.5),
+                color: isDark ? Colors.white70 : Colors.black54,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 12),
             ...[
@@ -1280,36 +1512,52 @@ ValueListenableBuilder<String>(
               'Posted items',
               'Search history',
               'Messages',
-            ].map((item) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(children: [
-                    Icon(Icons.check_circle_outline,
-                        size: 16, color: scheme.primary),
+            ].map(
+              (item) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: 16,
+                      color: scheme.primary,
+                    ),
                     const SizedBox(width: 8),
-                    Text(item,
-                        style: TextStyle(
-                            color: isDark ? Colors.white70 : Colors.black54,
-                            fontSize: 13)),
-                  ]),
-                )),
+                    Text(
+                      item,
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             Text(
               'You will receive a download link within 24 hours via email.',
               style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? Colors.white38 : Colors.black38),
+                fontSize: 12,
+                color: isDark ? Colors.white38 : Colors.black38,
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _snack(context, 'Export requested — check your email',
-                  icon: Icons.download_done, color: scheme.primary);
+              _snack(
+                context,
+                'Export requested — check your email',
+                icon: Icons.download_done,
+                color: scheme.primary,
+              );
             },
             child: const Text('Request Export'),
           ),
@@ -1331,19 +1579,20 @@ ValueListenableBuilder<String>(
             Text(
               'We d love to hear what you think!',
               style: TextStyle(
-                  color: isDark ? Colors.white54 : Colors.black45,
-                  height: 1.5),
+                color: isDark ? Colors.white54 : Colors.black45,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
               maxLines: 4,
-              style: TextStyle(
-                  color: isDark ? Colors.white : Colors.black87),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               decoration: InputDecoration(
                 hintText: 'Your feedback...',
                 hintStyle: TextStyle(
-                    color: isDark ? Colors.white30 : Colors.black26),
+                  color: isDark ? Colors.white30 : Colors.black26,
+                ),
                 filled: true,
                 fillColor: isDark ? Colors.white10 : Colors.grey[100],
                 border: OutlineInputBorder(
@@ -1356,13 +1605,18 @@ ValueListenableBuilder<String>(
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _snack(context, 'Thank you for your feedback!',
-                  icon: Icons.favorite, color: Colors.pink);
+              _snack(
+                context,
+                'Thank you for your feedback!',
+                icon: Icons.favorite,
+                color: Colors.pink,
+              );
             },
             child: const Text('Submit'),
           ),
@@ -1375,23 +1629,28 @@ ValueListenableBuilder<String>(
     final faqs = [
       {
         'q': 'How do I report a lost item?',
-        'a': 'Tap the + button on the home screen and fill out the form with item details and photos.',
+        'a':
+            'Tap the + button on the home screen and fill out the form with item details and photos.',
       },
       {
         'q': 'How do I claim a found item?',
-        'a': 'Navigate to the item details and tap "Claim Item". The finder will be notified.',
+        'a':
+            'Navigate to the item details and tap "Claim Item". The finder will be notified.',
       },
       {
         'q': 'How does the matching system work?',
-        'a': 'Our AI compares items based on description, colour, category, and location proximity.',
+        'a':
+            'Our AI compares items based on description, colour, category, and location proximity.',
       },
       {
         'q': 'Is my contact information private?',
-        'a': 'Yes. Contact info is only shared when you initiate contact about an item.',
+        'a':
+            'Yes. Contact info is only shared when you initiate contact about an item.',
       },
       {
         'q': 'Can I edit a posted item?',
-        'a': 'Yes, tap the three-dot menu on any of your posts to edit or delete.',
+        'a':
+            'Yes, tap the three-dot menu on any of your posts to edit or delete.',
       },
     ];
 
@@ -1406,14 +1665,14 @@ ValueListenableBuilder<String>(
             return ExpansionTile(
               tilePadding: EdgeInsets.zero,
               iconColor: scheme.primary,
-              collapsedIconColor:
-                  isDark ? Colors.white38 : Colors.black38,
+              collapsedIconColor: isDark ? Colors.white38 : Colors.black38,
               title: Text(
                 f['q']!,
                 style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14),
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
               ),
               children: [
                 Padding(
@@ -1421,19 +1680,21 @@ ValueListenableBuilder<String>(
                   child: Text(
                     f['a']!,
                     style: TextStyle(
-                        color: isDark ? Colors.white60 : Colors.black54,
-                        height: 1.5,
-                        fontSize: 13),
+                      color: isDark ? Colors.white60 : Colors.black54,
+                      height: 1.5,
+                      fontSize: 13,
+                    ),
                   ),
-                )
+                ),
               ],
             );
           }).toList(),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -1449,7 +1710,9 @@ ValueListenableBuilder<String>(
           mainAxisSize: MainAxisSize.min,
           children: [
             _contactOption(
-              context, isDark, scheme,
+              context,
+              isDark,
+              scheme,
               icon: Icons.email_outlined,
               title: 'Email Us',
               subtitle: 'support@twedrli.com',
@@ -1460,7 +1723,9 @@ ValueListenableBuilder<String>(
             ),
             const SizedBox(height: 8),
             _contactOption(
-              context, isDark, scheme,
+              context,
+              isDark,
+              scheme,
               icon: Icons.chat_bubble_outline_rounded,
               title: 'Live Chat',
               subtitle: 'Available 24/7',
@@ -1472,7 +1737,9 @@ ValueListenableBuilder<String>(
             ),
             const SizedBox(height: 8),
             _contactOption(
-              context, isDark, scheme,
+              context,
+              isDark,
+              scheme,
               icon: Icons.phone_outlined,
               title: 'Phone Support',
               subtitle: '+1 (800) 123-4567',
@@ -1486,8 +1753,9 @@ ValueListenableBuilder<String>(
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -1511,9 +1779,7 @@ ValueListenableBuilder<String>(
         decoration: BoxDecoration(
           color: isDark ? Colors.white10 : Colors.grey[50],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? Colors.white10 : Colors.black12,
-          ),
+          border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
         ),
         child: Row(
           children: [
@@ -1523,30 +1789,38 @@ ValueListenableBuilder<String>(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: isDark ? Colors.white : Colors.black87)),
-                  Text(subtitle,
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white38 : Colors.black38)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white38 : Colors.black38,
+                    ),
+                  ),
                 ],
               ),
             ),
             if (badge != null)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(badge,
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600)),
+                child: Text(
+                  badge,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
           ],
         ),
@@ -1575,20 +1849,25 @@ ValueListenableBuilder<String>(
             Text(
               body,
               style: TextStyle(
-                  color: isDark ? Colors.white70 : Colors.black54,
-                  height: 1.6),
+                color: isDark ? Colors.white70 : Colors.black54,
+                height: 1.6,
+              ),
             ),
             const SizedBox(height: 16),
-            Text(updated,
-                style: TextStyle(
-                    fontSize: 11,
-                    color: isDark ? Colors.white30 : Colors.black26)),
+            Text(
+              updated,
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.white30 : Colors.black26,
+              ),
+            ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             child: Text(acceptLabel),
@@ -1598,7 +1877,11 @@ ValueListenableBuilder<String>(
     );
   }
 
-  void _showAppVersionDialog(BuildContext context, bool isDark, ColorScheme scheme) {
+  void _showAppVersionDialog(
+    BuildContext context,
+    bool isDark,
+    ColorScheme scheme,
+  ) {
     final rows = {
       'App Name': 'Twedrli',
       'Version': '2.4.0',
@@ -1620,17 +1903,23 @@ ValueListenableBuilder<String>(
                 children: [
                   SizedBox(
                     width: 80,
-                    child: Text(e.key,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white54 : Colors.black45,
-                            fontSize: 13)),
+                    child: Text(
+                      e.key,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white54 : Colors.black45,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                   Expanded(
-                    child: Text(e.value,
-                        style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black87,
-                            fontSize: 13)),
+                    child: Text(
+                      e.value,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1639,8 +1928,9 @@ ValueListenableBuilder<String>(
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -1657,12 +1947,15 @@ ValueListenableBuilder<String>(
         content: Text(
           'Are you sure you want to log out of your account?',
           style: TextStyle(
-              color: isDark ? Colors.white70 : Colors.black54, height: 1.5),
+            color: isDark ? Colors.white70 : Colors.black54,
+            height: 1.5,
+          ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () {
@@ -1679,7 +1972,11 @@ ValueListenableBuilder<String>(
     );
   }
 
-  void _confirmDeleteAccount(BuildContext context, bool isDark, ColorScheme scheme) {
+  void _confirmDeleteAccount(
+    BuildContext context,
+    bool isDark,
+    ColorScheme scheme,
+  ) {
     showDialog(
       context: context,
       builder: (_) => _styledDialog(
@@ -1699,23 +1996,29 @@ ValueListenableBuilder<String>(
               child: Text(
                 '⚠️  This action is permanent and cannot be undone. All your posts, messages, and account data will be permanently erased.',
                 style: TextStyle(
-                    color: isDark ? Colors.red[300] : Colors.red[700],
-                    height: 1.5,
-                    fontSize: 13),
+                  color: isDark ? Colors.red[300] : Colors.red[700],
+                  height: 1.5,
+                  fontSize: 13,
+                ),
               ),
             ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(context);
-              _snack(context, 'Account deleted',
-                  icon: Icons.delete_forever, color: Colors.red);
+              _snack(
+                context,
+                'Account deleted',
+                icon: Icons.delete_forever,
+                color: Colors.red,
+              );
             },
             child: const Text('Delete Account'),
           ),

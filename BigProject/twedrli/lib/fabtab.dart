@@ -46,10 +46,22 @@ class _FabTabsState extends State<FabTabs> {
       /// CENTER INSERT BUTTON
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          if (isGuestNotifier.value) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please sign in to post items.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            return;
+          }
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => CreatePostScreen(userId: loggedInUserIdNotifier.value ?? 10),
-),
+            MaterialPageRoute(
+              builder: (context) => CreatePostScreen(
+                userId: loggedInUserIdNotifier.value ?? 10,
+              ),
+            ),
           );
         },
         backgroundColor: primaryColor,

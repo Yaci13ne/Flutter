@@ -70,6 +70,9 @@ class ItemDetailScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+      
+      
+      
                   // Back button
                   Positioned(
                     top: 12,
@@ -181,6 +184,15 @@ class ItemDetailScreen extends StatelessWidget {
                       height: 55,
                       child: ElevatedButton.icon(
                         onPressed: () {
+                          if (isGuestNotifier.value) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please sign in to contact users.'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
                           // TODO: implement contact action
                         },
                         icon: const Icon(Icons.mail_outline),

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1031363753988",
+    "firebase_url": "https://xoshka-374e1-default-rtdb.firebaseio.com",
+    "project_id": "xoshka-374e1",
+    "storage_bucket": "xoshka-374e1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1031363753988:android:8b501d27a8b3b46fc31d51",
+        "android_client_info": {
+          "package_name": "com.example.xorussian"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-d6jB6tcFGclM1nfsV8mStGT-814WQyE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

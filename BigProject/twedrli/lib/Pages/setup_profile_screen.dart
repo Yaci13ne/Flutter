@@ -1,17 +1,20 @@
+import 'dart:convert';
 import 'dart:io';
-
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:twedrli/Lists/list.dart';
 import 'package:twedrli/Pages/profile.dart';
+import 'package:twedrli/badge_service.dart';
 import 'package:twedrli/fabtab.dart';
 import 'package:twedrli/main.dart';
-
 
 // ════════════════════════════════════════════════════════════════════════════════
 // SETUP PROFILE SCREEN
 // ════════════════════════════════════════════════════════════════════════════════
 class SetupProfileScreen extends StatefulWidget {
-  final String fullName; // ✅ add this
+  final String fullName;
   const SetupProfileScreen({super.key, required this.fullName});
 
   @override
@@ -21,8 +24,9 @@ class SetupProfileScreen extends StatefulWidget {
 class _SetupProfileScreenState extends State<SetupProfileScreen> {
   final _usernameController = TextEditingController();
   final _bioController = TextEditingController();
-  File? _profileImage;
+Uint8List? _profileImage;
   int _bioLength = 0;
+  bool _isSaving = false;
   static const int _maxBio = 150;
 
   @override
@@ -36,18 +40,52 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
   @override
   void dispose() {
     _usernameController.dispose();
-    _bioController.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+      maxWidth: 400,
+      maxHeight: 400,
+    );
     if (picked != null) {
-      setState(() => _profileImage = File(picked.path));
+      final bytes = await picked.readAsBytes(); // ← read as bytes
+      setState(() => _profileImage = bytes);
     }
   }
-void _completeProfile() {
+
+  Future<String?> _encodeImage(Uint8List bytes) async {
+    try {
+      final b64 = base64Encode(bytes);
+      return 'data:image/jpeg;base64,$b64';
+    } catch (e) {
+      debugPrint('Profile image encode error: $e');
+      return null;
+    }
+  }
+
+  /// Save profile image (and any other profile fields) to the users table
+  Future<void> _saveProfileToApi(String imgUrl) async {
+    final userId = loggedInUserIdNotifier.value;
+    if (userId == null) return;
+    try {
+      final res = await http
+          .put(
+            Uri.parse('https://twedrliapi.linguaflo.me/users/$userId'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'img_url': imgUrl}),
+          )
+          .timeout(const Duration(seconds: 15));
+      debugPrint('Profile img saved: ${res.statusCode}');
+    } catch (e) {
+      debugPrint('Could not save profile image: $e');
+    }
+  }
+
+  Future<void> _completeProfile() async {
     final username = _usernameController.text.trim();
     if (username.isEmpty) {
       ScaffoldMessenger.of(
@@ -55,18 +93,45 @@ void _completeProfile() {
       ).showSnackBar(const SnackBar(content: Text('Please enter a username.')));
       return;
     }
-displayNameNotifier.value = widget.fullName; // ✅ add this line
 
-    // ✅ Push data to global notifiers
+    setState(() => _isSaving = true);
+
+    try {
+      // Encode and upload profile image if selected
+      if (_profileImage != null) {
+        final imgUrl = await _encodeImage(
+          _profileImage!,
+        ); // pass bytes directly
+        if (imgUrl != null) {
+          await _saveProfileToApi(imgUrl);
+        }
+      }
+    } finally {
+      setState(() => _isSaving = false);
+    }
+
+    // Update local notifiers
+    displayNameNotifier.value = widget.fullName;
     usernameNotifier.value = '@$username';
     if (_profileImage != null) {
       profileImageNotifier.value = _profileImage;
     }
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const FabTabs()),
-      (route) => false,
-    );
+    // Load badges then award b3 (Trusted User) and b4 (Early Bird)
+    final userId = loggedInUserIdNotifier.value;
+    if (userId != null) {
+      await BadgeService.loadBadges(userId);
+      if (_profileImage != null)
+        await BadgeService.awardBadge(3); // Trusted User
+      if (userId <= 100) await BadgeService.awardBadge(4); // Early Bird
+    }
+
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const FabTabs()),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -75,20 +140,20 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background — same blue gradient as the rest of the app
           Image.asset('assets/bg.png', fit: BoxFit.cover),
 
           SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── App bar row ───────────────────────────────────────
+                // ── App bar ───────────────────────────────────────────
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
-                      // Back button
                       GestureDetector(
                         onTap: () => Navigator.maybePop(context),
                         child: Container(
@@ -117,7 +182,6 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                           ),
                         ),
                       ),
-                      // Invisible spacer to balance the back button
                       const SizedBox(width: 40),
                     ],
                   ),
@@ -154,7 +218,6 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Circle avatar
                         Container(
                           width: 110,
                           height: 110,
@@ -165,10 +228,7 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 3,
-                            ),
+                            border: Border.all(color: Colors.white, width: 3),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.15),
@@ -176,9 +236,11 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                                 offset: const Offset(0, 4),
                               ),
                             ],
-                            image: _profileImage != null
+                image: _profileImage != null
                                 ? DecorationImage(
-                                    image: FileImage(_profileImage!),
+                                    image: MemoryImage(
+                                      _profileImage!,
+                                    ), // ← MemoryImage instead of FileImage
                                     fit: BoxFit.cover,
                                   )
                                 : null,
@@ -191,8 +253,6 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                                 )
                               : null,
                         ),
-
-                        // Blue "+" badge
                         Positioned(
                           bottom: 4,
                           right: -2,
@@ -202,10 +262,7 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                             decoration: BoxDecoration(
                               color: kBlue,
                               shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 2,
-                              ),
+                              border: Border.all(color: Colors.white, width: 2),
                             ),
                             child: const Icon(
                               Icons.add_rounded,
@@ -219,7 +276,7 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                   ),
                 ),
 
-                // ── Form card ─────────────────────────────────────────
+                // ── Form ──────────────────────────────────────────────
                 const SizedBox(height: 40),
                 Expanded(
                   child: SingleChildScrollView(
@@ -227,7 +284,6 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Username label
                         const Text(
                           'Username',
                           style: TextStyle(
@@ -237,8 +293,6 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                           ),
                         ),
                         const SizedBox(height: 8),
-
-                        // Username field
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -254,7 +308,9 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                           child: TextField(
                             controller: _usernameController,
                             style: const TextStyle(
-                                fontSize: 14, color: Colors.black87),
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
                             decoration: InputDecoration(
                               prefixIcon: const Icon(
                                 Icons.alternate_email_rounded,
@@ -263,7 +319,9 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                               ),
                               hintText: 'e.g. futurist_alex',
                               hintStyle: const TextStyle(
-                                  color: kGrey, fontSize: 14),
+                                color: kGrey,
+                                fontSize: 14,
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                                 borderSide: BorderSide.none,
@@ -271,89 +329,31 @@ displayNameNotifier.value = widget.fullName; // ✅ add this line
                               filled: true,
                               fillColor: Colors.white,
                               contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 16, horizontal: 16),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Bio label + counter
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Bio',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
+                                vertical: 16,
+                                horizontal: 16,
                               ),
-                            ),
-                            Text(
-                              '$_bioLength/$_maxBio',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.70),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Bio field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: _bioController,
-                            maxLines: 4,
-                            maxLength: _maxBio,
-                            style: const TextStyle(
-                                fontSize: 14, color: Colors.black87),
-                            decoration: InputDecoration(
-                              hintText: 'Tell the world who you are...',
-                              hintStyle: const TextStyle(
-                                  color: kGrey, fontSize: 14),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.all(16),
-                              counterText: '', // hide built-in counter
                             ),
                           ),
                         ),
 
                         const SizedBox(height: 32),
 
-                        // Complete Profile button
-                        PrimaryButton(
-                          label: 'Complete Profile  ›',
-                          onTap: _completeProfile,
-                        ),
+                        _isSaving
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                ),
+                              )
+                            : PrimaryButton(
+                                label: 'Complete Profile  ›',
+                                onTap: _completeProfile,
+                              ),
 
                         const SizedBox(height: 16),
-
-                        // Terms of service note
                         const Center(
                           child: Text(
                             'By finishing, you agree to our Terms of Service',
-                            style: TextStyle(
-                              color: kGrey,
-                              fontSize: 12,
-                            ),
+                            style: TextStyle(color: kGrey, fontSize: 12),
                           ),
                         ),
                       ],

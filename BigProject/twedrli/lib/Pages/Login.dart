@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:twedrli/Lists/list.dart';
+import 'package:twedrli/badge_service.dart';
 import 'package:twedrli/fabtab.dart';
 import 'package:twedrli/main.dart';
 
@@ -54,10 +55,29 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final user = data['user'] as Map<String, dynamic>;
 
-  loggedInUserIdNotifier.value = user['id'] as int;
+        final userId = user['id'] as int;
+        loggedInUserIdNotifier.value = userId;
         loggedInUserNameNotifier.value = user['name'] as String? ?? '';
         loggedInDepartmentNotifier.value = user['department'] as String? ?? '';
         loggedInTokenNotifier.value = data['token'] as String? ?? '';
+
+        // ── Fetch img_url separately ──
+        final userRes = await http
+            .get(
+              Uri.parse('https://twedrliapi.linguaflo.me/users/email/$email'),
+            )
+            .timeout(const Duration(seconds: 10));
+        if (userRes.statusCode == 200) {
+          final decoded = json.decode(userRes.body);
+          final userData = decoded is List
+              ? decoded.first as Map<String, dynamic>
+              : decoded as Map<String, dynamic>;
+          loggedInImgUrlNotifier.value = userData['img_url'] as String? ?? '';
+        }
+
+        // ── Load badges for this user ──
+        await BadgeService.loadBadges(userId);
+
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const FabTabs()),
@@ -90,10 +110,8 @@ class _LoginScreenState extends State<LoginScreen> {
         fit: StackFit.expand,
         children: [
           Image.asset('assets/bg.png', fit: BoxFit.cover),
-
           Column(
             children: [
-              // ── Blue top section ──────────────────────────────────────
               Expanded(
                 flex: 5,
                 child: SafeArea(
@@ -101,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const TwedrliLogo(size: 70),
+                        const TwedrliLogo(size: 105),
                         const SizedBox(height: 24),
                         const Text(
                           'Welcome back!',
@@ -109,6 +127,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                blurRadius: 10,
+                                color: Colors.blue,
+                                offset: Offset(0, 0),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -116,7 +141,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Login to your account',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.white.withOpacity(0.85),
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                blurRadius: 10,
+                                color: Colors.blue,
+                                offset: Offset(0, 0),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -124,8 +157,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-
-              // ── Form section ──────────────────────────────────────────
               Expanded(
                 flex: 7,
                 child: SingleChildScrollView(
@@ -147,7 +178,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordController,
                       ),
                       const SizedBox(height: 8),
-
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -158,19 +188,38 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 12),
-
                       _isSubmitting
                           ? const Center(child: CircularProgressIndicator())
                           : PrimaryButton(label: 'Sign In', onTap: _signIn),
-
-                      const SizedBox(height: 28),
-                      const OrDivider(text: 'Or sign in with'),
-                      const SizedBox(height: 24),
-                      const GoogleButton(label: 'Sign in with Google'),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                            isGuestNotifier.value = true;
+                            // Set default guest values
+                            loggedInUserIdNotifier.value = 0;
+                            loggedInUserNameNotifier.value = 'Guest User';
+                            loggedInImgUrlNotifier.value = '';
+                            
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (_) => const FabTabs()),
+                              (route) => false,
+                            );
+                          },
+                          child: const Text(
+                            'Continue as Guest',
+                            style: TextStyle(
+                              color: kBlue,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       const SizedBox(height: 40),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -192,7 +241,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -219,7 +267,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-
                       const Center(
                         child: Text(
                           '© 2026 TWEDRLI CAMPUS INC.',

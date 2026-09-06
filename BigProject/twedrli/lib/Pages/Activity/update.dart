@@ -1,9 +1,5 @@
-// ─── Updates Page ─────────────────────────────────────────────────────────────
-
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:twedrli/Pages/activity.dart';
+import 'package:twedrli/Widgets/page_shell.dart';
 
 class UpdatesPage extends StatelessWidget {
   const UpdatesPage({super.key});

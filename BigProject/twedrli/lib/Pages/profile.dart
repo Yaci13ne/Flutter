@@ -1,25 +1,14 @@
-// pubspec.yaml dependencies needed:
-//   image_picker: ^1.0.7
-//
-// Add to pubspec.yaml under dependencies:
-//   image_picker: ^1.0.7
-//
-// Add to pubspec.yaml under flutter:
-//   assets:
-//     - assets/
-//
-// Android: add to AndroidManifest.xml inside <manifest>:
-//   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-// iOS: add to Info.plist:
-//   NSPhotoLibraryUsageDescription - "Select profile photo"
+
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:twedrli/Lists/list.dart';
 import 'package:twedrli/Pages/Login.dart';
 import 'package:twedrli/Pages/home.dart';
+import 'package:twedrli/badge_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -44,7 +33,8 @@ class MyApp extends StatelessWidget {
 
 // ─── Shared Profile Image Notifier ───────────────────────────────────────────
 
-final ValueNotifier<File?> profileImageNotifier = ValueNotifier<File?>(null);
+final ValueNotifier<Uint8List?> profileImageNotifier =
+    ValueNotifier<Uint8List?>(null);
 
 // ─── Shared Username Notifier ─────────────────────────────────────────────────
 
@@ -293,8 +283,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  int get earnedBadgesCount =>
-      allBadges.where((badge) => badge.isEarned).length;
+  int get earnedBadgesCount => earnedBadgeCount;
 
   Future<void> _pickImage() async {
     final XFile? file = await _picker.pickImage(
@@ -302,7 +291,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       imageQuality: 85,
     );
     if (file != null) {
-      profileImageNotifier.value = File(file.path);
+      final bytes = await file.readAsBytes();
+      final base64Image = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      
+      profileImageNotifier.value = bytes;
+
+      final userId = loggedInUserIdNotifier.value;
+      if (userId != null) {
+        final success = await TwedrliApi.updateProfilePicture(userId, base64Image);
+        if (success) {
+          loggedInImgUrlNotifier.value = base64Image;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Profile picture updated successfully')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to update profile picture on server')),
+            );
+          }
+        }
+      }
     }
   }
 
@@ -390,6 +401,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 final newName = controller.text.trim();
                 if (newName.isNotEmpty) {
                   displayNameNotifier.value = newName;
+                  loggedInUserNameNotifier.value = newName;
+
+                  // Sync to Database
+                  final userId = loggedInUserIdNotifier.value;
+                  if (userId != null) {
+                    TwedrliApi.updateUserName(userId, newName);
+                  }
                 }
                 Navigator.pop(ctx);
               },
@@ -447,6 +465,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final secondaryTextColor = isDark ? Colors.grey[400] : Colors.black54;
     final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final borderColor = isDark ? Colors.grey[800]! : const Color(0xFFEEEEEE);
+
+    if (isGuestNotifier.value) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2979FF).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.person_outline,
+                    size: 80,
+                    color: Color(0xFF2979FF),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Guest Mode',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Sign in to your account to view your profile, saved items, and stats.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: secondaryTextColor,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton(
+                  onPressed: () {
+                    isGuestNotifier.value = false;
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2979FF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Sign In Now',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -545,7 +631,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildAvatar() {
     return GestureDetector(
       onTap: _pickImage,
-      child: ValueListenableBuilder<File?>(
+      child: ValueListenableBuilder<Uint8List?>(
         valueListenable: profileImageNotifier,
         builder: (context, profileImage, _) {
           return Stack(
@@ -560,18 +646,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 child: ClipOval(
                   child: profileImage != null
-                      ? Image.file(profileImage, fit: BoxFit.cover)
-                      : Image.asset(
-                          'assets/profile_placeholder.png',
+                      ? Image.memory(
+                          profileImage,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: const Color(0xFFE8F0FE),
-                            child: const Icon(
-                              Icons.person,
-                              size: 50,
-                              color: Colors.blue,
-                            ),
-                          ),
+                        ) // ← use this
+                      : ValueListenableBuilder<String>(
+                          valueListenable: loggedInImgUrlNotifier,
+                          builder: (context, imgUrl, _) {
+
+
+// REPLACE with this:
+                            if (imgUrl.isNotEmpty) {
+                              if (imgUrl.startsWith('data:image')) {
+                                try {
+                                  final bytes = base64Decode(
+                                    imgUrl.split(',').last,
+                                  );
+                                  return Image.memory(
+                                    bytes,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: const Color(0xFFE8F0FE),
+                                      child: const Icon(
+                                        Icons.person,
+                                        size: 50,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                  );
+                                } catch (_) {}
+                              }
+                              return Image.network(
+                                imgUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: const Color(0xFFE8F0FE),
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 50,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                loadingBuilder: (_, child, progress) =>
+                                    progress == null
+                                    ? child
+                                    : const Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                              );
+                            }
+
+                            return Image.asset(
+                              'assets/profile_placeholder.png',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: const Color(0xFFE8F0FE),
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 50,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                 ),
               ),
@@ -742,92 +881,133 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildBadges(bool isDark, Color textColor, Color? secondaryTextColor) {
-    final preview = allBadges.take(3).toList();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return ValueListenableBuilder<List<bool>>(
+      valueListenable: userBadgesNotifier,
+      builder: (context, earnedFlags, _) {
+        final earned = earnedFlags.where((b) => b).length;
+        final allVerified = earnedFlags.every((b) => b);
+        final preview = allBadges.take(3).toList();
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Badges',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: textColor,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Badges',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.blue.withOpacity(0.2)
+                              : Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '$earned/${allBadges.length}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2979FF),
+                          ),
+                        ),
+                      ),
+                      if (allVerified) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2ECC71).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.verified,
+                                size: 12,
+                                color: Color(0xFF2ECC71),
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'VERIFIED',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF2ECC71),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.blue.withOpacity(0.2)
-                          : Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '$earnedBadgesCount/${allBadges.length}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF2979FF),
+                  GestureDetector(
+                    onTap: _openAllBadges,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2979FF),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        children: [
+                          Text(
+                            'VIEW ALL',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 10,
+                            color: Colors.white,
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
-              GestureDetector(
-                onTap: _openAllBadges,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2979FF),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    children: [
-                      Text(
-                        'VIEW ALL',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 10,
-                        color: Colors.white,
-                      ),
-                    ],
+              const SizedBox(height: 14),
+              Row(
+                children: List.generate(
+                  preview.length,
+                  (i) => Expanded(
+                    child: _buildBadgeItem(preview[i], earnedFlags[i], isDark),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: preview
-                .map((b) => Expanded(child: _buildBadgeItem(b, isDark)))
-                .toList(),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildBadgeItem(BadgeData badge, bool isDark) {
+  Widget _buildBadgeItem(BadgeData badge, bool isEarned, bool isDark) {
     return Column(
       children: [
         Stack(
@@ -836,12 +1016,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: badge.color,
+                color: isEarned ? badge.color : badge.color.withOpacity(0.3),
                 shape: BoxShape.circle,
               ),
               child: Icon(badge.icon, color: Colors.white, size: 28),
             ),
-            if (badge.isEarned)
+            if (isEarned)
               Positioned(
                 top: 0,
                 right: 0,
@@ -1453,129 +1633,184 @@ class AllBadgesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    int earnedCount = allBadges.where((badge) => badge.isEarned).length;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        elevation: 0,
-        leading: GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Icon(
-            Icons.arrow_back_ios_new,
-            color: theme.colorScheme.onSurface,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          'All Badges',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            alignment: Alignment.centerLeft,
-            child: Row(
+    return ValueListenableBuilder<List<bool>>(
+      valueListenable: userBadgesNotifier,
+      builder: (context, earnedFlags, _) {
+        final earnedCount = earnedFlags.where((b) => b).length;
+        final allVerified = earnedFlags.every((b) => b);
+
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          appBar: AppBar(
+            backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            elevation: 0,
+            leading: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                color: theme.colorScheme.onSurface,
+                size: 20,
+              ),
+            ),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.blue.withOpacity(0.2)
-                        : Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Earned: $earnedCount/${allBadges.length}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF2979FF),
-                    ),
+                Text(
+                  'All Badges',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                if (allVerified) ...[
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.verified,
+                    size: 20,
+                    color: Color(0xFF2ECC71),
                   ),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.green.withOpacity(0.2)
-                        : Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF2ECC71),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.check,
-                          size: 8,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'Earned',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF2ECC71),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ],
             ),
+            centerTitle: true,
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(50),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.blue.withOpacity(0.2)
+                            : Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Earned: $earnedCount/${allBadges.length}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2979FF),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    if (allVerified)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFF2ECC71,
+                          ).withOpacity(isDark ? 0.2 : 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.verified,
+                              size: 14,
+                              color: Color(0xFF2ECC71),
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'VERIFIED',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF2ECC71),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.green.withOpacity(0.2)
+                              : Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF2ECC71),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                size: 8,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Earned',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2ECC71),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 14,
-            mainAxisSpacing: 14,
-            childAspectRatio: 0.9,
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                childAspectRatio: 0.9,
+              ),
+              itemCount: allBadges.length,
+              itemBuilder: (context, index) =>
+                  _buildBadgeCard(allBadges[index], earnedFlags[index], isDark),
+            ),
           ),
-          itemCount: allBadges.length,
-          itemBuilder: (context, index) =>
-              _buildBadgeCard(allBadges[index], isDark),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildBadgeCard(BadgeData badge, bool isDark) {
+  Widget _buildBadgeCard(BadgeData badge, bool isEarned, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: badge.color.withOpacity(isDark ? 0.15 : 0.08),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: badge.isEarned
+          color: isEarned
               ? const Color(0xFF2ECC71)
               : badge.color.withOpacity(0.25),
-          width: badge.isEarned ? 2 : 1.5,
+          width: isEarned ? 2 : 1.5,
         ),
       ),
       child: Stack(
@@ -1590,12 +1825,14 @@ class AllBadgesScreen extends StatelessWidget {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: badge.color,
+                        color: isEarned
+                            ? badge.color
+                            : badge.color.withOpacity(0.4),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(badge.icon, color: Colors.white, size: 26),
                     ),
-                    if (badge.isEarned)
+                    if (isEarned)
                       const Positioned(
                         top: 0,
                         right: 0,
@@ -1637,7 +1874,7 @@ class AllBadgesScreen extends StatelessWidget {
               ],
             ),
           ),
-          if (!badge.isEarned)
+          if (!isEarned)
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(

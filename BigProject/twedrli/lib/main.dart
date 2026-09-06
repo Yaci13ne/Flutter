@@ -6,6 +6,7 @@ import 'package:twedrli/fabtab.dart';
 import 'package:twedrli/map.dart';
 import 'package:twedrli/splash.dart';
 import 'package:twedrli/theme/theme_modifier.dart';
+import 'package:twedrli/services/settings_service.dart';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const Color kBlue = Color(0xFF1E9BF0);
@@ -15,7 +16,9 @@ const Color kGrey = Color(0xFF8A9BB0);
 const Color kInputBg = Color(0xFFF5F8FB);
 const Color kBorder = Color(0xFFDDE4ED);
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SettingsService.init();
   runApp(const TwedrliApp());
 }
 
@@ -24,18 +27,33 @@ class TwedrliApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeModeNotifier,
-      builder: (context, themeMode, _) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        themeModeNotifier,
+        textScaleNotifier,
+        highContrastNotifier,
+      ]),
+      builder: (context, _) {
+        final highContrast = highContrastNotifier.value;
+        
         return MaterialApp(
           title: 'Twedrli',
           debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaleFactor: textScaleNotifier.value,
+              ),
+              child: child!,
+            );
+          },
 
           // ─── Light Theme ────────────────────────────────────────────
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFF29B6F6),
               brightness: Brightness.light,
+              contrastLevel: highContrast ? 1.0 : 0.0,
             ),
             fontFamily: 'SF Pro Display',
             useMaterial3: true,
@@ -53,6 +71,7 @@ class TwedrliApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFF29B6F6),
               brightness: Brightness.dark,
+              contrastLevel: highContrast ? 1.0 : 0.0,
             ),
             fontFamily: 'SF Pro Display',
             useMaterial3: true,
@@ -65,7 +84,7 @@ class TwedrliApp extends StatelessWidget {
             ),
           ),
 
-          themeMode: themeMode,
+          themeMode: themeModeNotifier.value,
           home: const SplashScreen(),
           routes: {
             '/login': (_) => const LoginScreen(),
